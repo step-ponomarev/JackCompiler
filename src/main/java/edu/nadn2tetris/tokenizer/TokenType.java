@@ -6,7 +6,7 @@ import java.util.stream.Stream;
 
 public enum TokenType {
     KEYWORD(createKeywordPatten()),
-    //    SYMBOL(Pattern.compile()),
+    SYMBOL(Pattern.compile("^(\\{|\\}|\\(|\\)|\\[|\\]|\\.|\\,|\\;|\\+|\\-|\\*|\\/|\\&|\\||\\<|\\>|\\=|\\~)$")),
     IDENTIFIER(Pattern.compile("^[_a-zA-Z]+[_a-zA-Z\\d]*$")),
     INT_CONST(Pattern.compile("^\\d{1,5}$")),  // [0, 32767] by spec
     STRING_CONST(Pattern.compile("^\".*\"$"));
