@@ -24,6 +24,15 @@ public enum TokenType {
 
         for (TokenType val : TokenType.values()) {
             if (val.pattern.matcher(value).matches()) {
+                if (val == INT_CONST) {
+                    try {
+                        // [0, 32767] by spec
+                        Short.parseShort(value);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                }
+
                 return val;
             }
         }
@@ -31,7 +40,7 @@ public enum TokenType {
         return null;
     }
 
-    private static Pattern createKeywordPatten() {
+    public static Pattern createKeywordPatten() {
         final String keywordsUnion = Stream.of(Keyword.values())
                 .map(p -> p.getPattern().pattern().substring(1, p.getPattern().pattern().length() - 1))
                 .collect(Collectors.joining("|"));
