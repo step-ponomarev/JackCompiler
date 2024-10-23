@@ -23,18 +23,24 @@ public enum TokenType {
         }
 
         for (TokenType val : TokenType.values()) {
-            if (val.pattern.matcher(value).matches()) {
-                if (val == INT_CONST) {
-                    try {
-                        // [0, 32767] by spec
-                        Short.parseShort(value);
-                    } catch (NumberFormatException e) {
-                        return null;
-                    }
-                }
-
-                return val;
+            if (!val.pattern.matcher(value).matches()) {
+                continue;
             }
+
+            if (val == INT_CONST) {
+                try {
+                    // [0, 32767] by spec
+                    Short.parseShort(value);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+
+            if (val == IDENTIFIER && KEYWORD.pattern.matcher(value).matches()) {
+                return KEYWORD;
+            }
+
+            return val;
         }
 
         return null;
