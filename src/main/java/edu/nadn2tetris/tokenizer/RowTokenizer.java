@@ -1,14 +1,17 @@
 package edu.nadn2tetris.tokenizer;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class RowTokenizer implements Function<String, Stream<String>> {
-    private static final Pattern[] ROW_PATTERNS = new Pattern[]{
+    private static final Pattern[] ROW_PATTERNS = new Pattern[] {
             createVarDecPattern()
     };
 
@@ -19,21 +22,34 @@ public final class RowTokenizer implements Function<String, Stream<String>> {
             throw new IllegalStateException("Unsupported row: " + row);
         }
 
-        final List<String> tokens = new ArrayList<>(matcher.groupCount());
-        for (int i = 1; i <= matcher.groupCount(); i++) {
-            final String token = matcher.group(i);
-            if (token == null) {
-                continue;
+        final int groupCount = matcher.groupCount();
+        final Iterator<String> iterator = new Iterator<>() {
+            private int i = 1;
+
+            @Override
+            public boolean hasNext() {
+                return i <= groupCount;
             }
 
-            if (TokenType.parse(token) == null) {
-                throw new IllegalStateException("Invalid token: " + token);
+            @Override
+            public String next() {
+                final String token = matcher.group(i++);
+                if (token == null) {
+                    return null;
+                }
+
+                if (TokenType.parse(token) == null) {
+                    throw new IllegalStateException("Invalid token: " + token);
+                }
+
+                return token.trim();
             }
+        };
 
-            tokens.add(token);
-        }
-
-        return tokens.stream();
+        return StreamSupport.stream(
+                Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
+                false
+        ).filter(Objects::nonNull);
     }
 
     private static Matcher getRowMatcher(String row) {
