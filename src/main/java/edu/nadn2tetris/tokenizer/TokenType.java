@@ -11,7 +11,7 @@ public enum TokenType {
     INT_CONST(Pattern.compile("^\\d{1,5}$")),  // [0, 32767] by spec
     STRING_CONST(Pattern.compile("^\".*\"$"));
 
-    private final Pattern pattern;
+    public final Pattern pattern;
 
     TokenType(Pattern pattern) {
         this.pattern = pattern;

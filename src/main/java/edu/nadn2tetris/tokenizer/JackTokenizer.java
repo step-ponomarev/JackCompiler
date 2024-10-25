@@ -17,17 +17,18 @@ public final class JackTokenizer implements Closeable {
     private short intVal;
     private String identifier;
     private String stringVal;
-    private String[] rowTokens;
-    private final Iterator<String> rowIterator;
-    int i = 0;
+    private final Iterator<String> tokens;
 
     public JackTokenizer(InputStream is) throws IOException {
         this.reader = new BufferedReader(new InputStreamReader(is));
-        this.rowIterator = this.reader.lines().filter(new RowFilter()).iterator();
+        this.tokens = this.reader.lines()
+                .filter(new RowFilter())
+                .flatMap(new RowTokenizer())
+                .iterator();
     }
 
     public boolean hasMoreTokens() throws IOException {
-        return (rowTokens != null && i < rowTokens.length) || rowIterator.hasNext();
+        return tokens.hasNext();
     }
 
     public void advance() {
@@ -36,16 +37,7 @@ public final class JackTokenizer implements Closeable {
                 throw new IllegalStateException("End of file!");
             }
 
-            if (rowTokens == null || i == rowTokens.length) {
-                rowTokens = readNextRow();
-            }
-
-            String currToken = rowTokens[i++];
-            final boolean lastToken = i == rowTokens.length;
-            if (lastToken) {
-                currToken = currToken.substring(0, currToken.length() - 1);
-            }
-
+            String currToken = this.tokens.next();
             tokenType = TokenType.parse(currToken);
             if (tokenType == null) {
                 throw new RuntimeException("Unsupported currToken: " + currToken);
@@ -87,24 +79,6 @@ public final class JackTokenizer implements Closeable {
 
     public String stringVal() {
         return stringVal;
-    }
-
-    private String[] readNextRow() throws IOException {
-        i = 0;
-        /*
-            TODO: Поддержать конструкции вида
-                if (x < y) {
-                    ...
-                }
-                // решается посимвольным чтением(Но не эффективно)
-                // в данном виде у нас не распарсятся отдельные токены (x как "x", "("  
-         */
-        String currentLine = rowIterator.next();
-        if (currentLine.charAt(currentLine.length() - 1) != ';') {
-            throw new IllegalStateException("Expected \";\"");
-        }
-
-        return currentLine.split("\\s");
     }
 
     @Override

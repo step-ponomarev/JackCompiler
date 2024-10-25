@@ -28,19 +28,41 @@ public final class JackTokenizerTest {
             Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
             Assertions.assertEquals("c", jackTokenizer.identifier());
 
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals(';', jackTokenizer.symbol());
+
             Assertions.assertFalse(jackTokenizer.hasMoreTokens());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-
+    
     @Test
-    public void invalidLineTest() {
-        final String line = "var char c";
-        Assertions.assertThrowsExactly(IllegalStateException.class, () -> {
-            JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()));
+    public void simpleIfTest() {
+        final String line = "if (x < 0) {";
+
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
             jackTokenizer.advance();
-        });
+            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
+            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
+            Assertions.assertEquals(Keyword.CHAR, jackTokenizer.keyword());
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
+            Assertions.assertEquals("c", jackTokenizer.identifier());
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals(';', jackTokenizer.symbol());
+
+            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
