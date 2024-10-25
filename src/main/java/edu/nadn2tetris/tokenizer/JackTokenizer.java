@@ -91,6 +91,14 @@ public final class JackTokenizer implements Closeable {
 
     private String[] readNextRow() throws IOException {
         i = 0;
+        /*
+            TODO: Поддержать конструкции вида
+                if (x < y) {
+                    ...
+                }
+                // решается посимвольным чтением(Но не эффективно)
+                // в данном виде у нас не распарсятся отдельные токены (x как "x", "("  
+         */
         String currentLine = rowIterator.next();
         if (currentLine.charAt(currentLine.length() - 1) != ';') {
             throw new IllegalStateException("Expected \";\"");
