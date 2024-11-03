@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public final class RowTokenizer implements Function<String, Stream<String>> {
-    private static final Pattern[] ROW_PATTERNS = new Pattern[] {
+final class RowTokenizer implements Function<String, Stream<String>> {
+    public static final Pattern[] ROW_PATTERNS = new Pattern[] {
             createVarDecPattern()
     };
 
@@ -70,6 +70,14 @@ public final class RowTokenizer implements Function<String, Stream<String>> {
         final String identifierPattern = TokenType.IDENTIFIER.pattern.pattern().substring(1, TokenType.IDENTIFIER.pattern.pattern().length() - 1);
         return Pattern
                 .compile("^(var)\\s+(int|char|boolean|%s)\\s+(%s)\\s*((,)\\s*(%s))*(\\s*;)$"
+                        .formatted(identifierPattern, identifierPattern, identifierPattern)
+                );
+    }
+
+    private static Pattern createClassPattern() {
+        final String identifierPattern = TokenType.IDENTIFIER.pattern.pattern().substring(1, TokenType.IDENTIFIER.pattern.pattern().length() - 1);
+        return Pattern
+                .compile("^(class)\\s+(%s)\\s+((,)\\s*(%s))*(\\s*;)$"
                         .formatted(identifierPattern, identifierPattern, identifierPattern)
                 );
     }

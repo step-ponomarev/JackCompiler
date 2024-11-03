@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class JackTokenizer implements Closeable {
     private final BufferedReader reader;
@@ -21,7 +23,9 @@ public final class JackTokenizer implements Closeable {
 
     public JackTokenizer(InputStream is) throws IOException {
         this.reader = new BufferedReader(new InputStreamReader(is));
-        this.tokens = this.reader.lines()
+
+        final Stream<String> lines = this.reader.lines();
+        this.tokens = StreamSupport.stream(new RowAccumulatorSpliterator(lines.spliterator(), RowTokenizer.ROW_PATTERNS), false)
                 .filter(new RowFilter())
                 .flatMap(new RowTokenizer())
                 .iterator();

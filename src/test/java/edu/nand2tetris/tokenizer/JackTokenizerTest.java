@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.Keyword;
+import edu.nadn2tetris.tokenizer.StatementPatterns;
 import edu.nadn2tetris.tokenizer.TokenType;
 
 public final class JackTokenizerTest {

@@ -2,7 +2,7 @@ package edu.nadn2tetris.tokenizer;
 
 import java.util.function.Predicate;
 
-public final class RowFilter implements Predicate<String> {
+final class RowFilter implements Predicate<String> {
     @Override
     public boolean test(String s) {
         //TODO: support comments
