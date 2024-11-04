@@ -25,7 +25,7 @@ public final class JackTokenizer implements Closeable {
         this.reader = new BufferedReader(new InputStreamReader(is));
 
         final Stream<String> lines = this.reader.lines();
-        this.tokens = StreamSupport.stream(new RowAccumulatorSpliterator(lines.spliterator(), RowTokenizer.ROW_PATTERNS), false)
+        this.tokens = StreamSupport.stream(new RowAccumulatorSpliterator(lines.spliterator(), StatementPatterns::matches), false)
                 .filter(new RowFilter())
                 .flatMap(new RowTokenizer())
                 .iterator();
