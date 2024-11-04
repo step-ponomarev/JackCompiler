@@ -20,7 +20,7 @@ final class RowAccumulatorSpliterator extends Spliterators.AbstractSpliterator<S
     @Override
     public boolean tryAdvance(Consumer<? super String> action) {
         return source.tryAdvance(row -> {
-            acc.append(row);
+            acc.append(row.trim());
             if (!matcher.test(acc)) {
                 return;
             }

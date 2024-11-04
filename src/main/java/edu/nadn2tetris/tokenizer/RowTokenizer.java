@@ -6,22 +6,19 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 final class RowTokenizer implements Function<String, Stream<String>> {
-    public static final Pattern[] ROW_PATTERNS = new Pattern[] {
-            createVarDecPattern()
-    };
-
     @Override
     public Stream<String> apply(String row) {
-        final Matcher matcher = getRowMatcher(row);
+        final Matcher matcher = StatementPatterns.getMatcher(row);
         if (matcher == null) {
             throw new IllegalStateException("Unsupported row: " + row);
         }
 
+        //TODO: либо разобраться с группами.
+        //TODO: либо написать отдельный обработчик для каждого случая
         final int groupCount = matcher.groupCount();
         final Iterator<String> iterator = new Iterator<>() {
             private int i = 1;
@@ -33,12 +30,24 @@ final class RowTokenizer implements Function<String, Stream<String>> {
 
             @Override
             public String next() {
-                final String token = matcher.group(i++);
+                String token = matcher.group(i++);
                 if (token == null) {
                     return null;
                 }
+                
+                //TODO: обрабатывать посимвольно, а не через группы
+                //если прочитали букву, то читаем пока корректно, проверяем не кейворд ли это
+                // и тд.
+                TokenType tokenType = TokenType.parse(token);
+                while (tokenType == null && hasNext()) {
+                    token = matcher.group(i++);
+                    if (token == null) {
+                        return null;
+                    }
+                    tokenType = TokenType.parse(token);
+                }
 
-                if (TokenType.parse(token) == null) {
+                if (tokenType == null && !hasNext()) {
                     throw new IllegalStateException("Invalid token: " + token);
                 }
 
@@ -51,28 +60,4 @@ final class RowTokenizer implements Function<String, Stream<String>> {
                 false
         ).filter(Objects::nonNull);
     }
-
-    private static Matcher getRowMatcher(String row) {
-        for (Pattern pattern : ROW_PATTERNS) {
-            final Matcher matcher = pattern.matcher(row);
-            if (!matcher.matches()) {
-                continue;
-            }
-
-            return matcher;
-        }
-
-        return null;
-    }
-
-    // 'var' type varName (',' varName)* ';
-    private static Pattern createVarDecPattern() {
-        final String identifierPattern = TokenType.IDENTIFIER.pattern.pattern().substring(1, TokenType.IDENTIFIER.pattern.pattern().length() - 1);
-        return Pattern
-                .compile("^(var)\\s+(int|char|boolean|%s)\\s+(%s)\\s*((,)\\s*(%s))*(\\s*;)$"
-                        .formatted(identifierPattern, identifierPattern, identifierPattern)
-                );
-    }
-
-    
 }

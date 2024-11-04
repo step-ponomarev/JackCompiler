@@ -1,5 +1,6 @@
 package edu.nadn2tetris.tokenizer;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class StatementPatterns {
@@ -62,6 +63,17 @@ public class StatementPatterns {
             CLASS_VAR_DECLARATION_PATTERN,
             CLASS_PATTERN
     };
+    
+    public static Matcher getMatcher(CharSequence statement) {
+        for (Pattern pattern : STATEMENT_PATTERNS) {
+            final Matcher matcher = pattern.matcher(statement);
+            if (matcher.matches()) {
+                return matcher;
+            }
+        }
+
+        return null;
+    }
 
     public static boolean matches(CharSequence statement) {
         for (Pattern pattern : STATEMENT_PATTERNS) {
@@ -74,7 +86,6 @@ public class StatementPatterns {
     }
 
     private static Pattern createSubroutimeCallPattern() {
-
         return Pattern.compile("^(%s)(\\()(.+)(\\))|((%s)|(%s))(\\.)(%s)$"
                 .formatted(
                         VAR_NAME_PATTERN.pattern().substring(1, VAR_NAME_PATTERN.pattern().length() - 1),
@@ -86,15 +97,16 @@ public class StatementPatterns {
     }
 
     private static Pattern createTermPattern() {
-        final String ARRAY_PATTERN = "(%s)(\\[)(.+)(\\])".formatted(VAR_NAME_PATTERN.pattern().substring(1, VAR_NAME_PATTERN.pattern().length() - 1));
+        final String ARRAY_PATTERN = "(%s)(\\[)(?:.+)(\\])".formatted(VAR_NAME_PATTERN.pattern().substring(1, VAR_NAME_PATTERN.pattern().length() - 1));
         final String EXPRESSION_PATTERN = "(\\()(.+)(\\))";
         final String UNARY_OP_PATTERN = "(%s) (.+)".formatted(UNARY_OPERATOR_PATTERN.pattern().substring(1, UNARY_OPERATOR_PATTERN.pattern().length() - 1));
 
-        return Pattern.compile("^(%s)|(%s)|(%s)|(%s)|(%s)|(%s)|(%s)$"
+        return Pattern.compile("^(%s|%s|%s|%s|%s|(?:%s)|%s|(?:%s))$"
                 .formatted(
                         INTEGER_CONSTANT_PATTERN.pattern().substring(1, INTEGER_CONSTANT_PATTERN.pattern().length() - 1),
                         STRING_CONSTANT_PATTERN.pattern().substring(1, STRING_CONSTANT_PATTERN.pattern().length() - 1),
                         KEYWORD_CONSTANT_PATTERN.pattern().substring(1, KEYWORD_CONSTANT_PATTERN.pattern().length() - 1),
+                        VAR_NAME_PATTERN.pattern().substring(1, VAR_NAME_PATTERN.pattern().length() - 1),
                         ARRAY_PATTERN,
                         EXPRESSION_PATTERN,
                         UNARY_OP_PATTERN,
@@ -104,7 +116,7 @@ public class StatementPatterns {
     }
 
     private static Pattern createExpresionPattern() {
-        return Pattern.compile("^(%s)\\s+((%s)\\s+(%s))*$".formatted(
+        return Pattern.compile("^(%s)\\s*((%s)\\s*(%s))*$".formatted(
                         TERM_PATTERN.pattern().substring(1, TERM_PATTERN.pattern().length() - 1),
                         OPERATOR_PATTERN.pattern().substring(1, OPERATOR_PATTERN.pattern().length() - 1),
                         TERM_PATTERN.pattern().substring(1, TERM_PATTERN.pattern().length() - 1)
@@ -120,21 +132,21 @@ public class StatementPatterns {
     }
 
     private static Pattern createIfPattern() {
-        return Pattern.compile("^(if) (\\()(%s)(\\)) (\\{)(.+)(\\}) ((else) (\\{)(.+)(\\}))?$".formatted(
-                        SUBROUTINE_CALL_PATTERN.pattern().substring(1, SUBROUTINE_CALL_PATTERN.pattern().length() - 1)
+        return Pattern.compile("^(if)\\s*(\\()(?:%s)(\\))\\s*(\\{)(.+?)(\\})\\s*((else)\\s*(\\{)(?:.+)(\\}))?$".formatted(
+                        EXPRESSION_PATTERN.pattern().substring(1, EXPRESSION_PATTERN.pattern().length() - 1)
                 )
         );
     }
 
     private static Pattern createWhilePattern() {
-        return Pattern.compile("^(while) (\\()(%s)(\\)) (\\{)(.+)(\\})$".formatted(
+        return Pattern.compile("^(while)\\*(\\()\\s*(%s)\\s*(\\))\\s*(\\{)\\s*(.+)\\s*(\\})$".formatted(
                         EXPRESSION_PATTERN.pattern().substring(1, EXPRESSION_PATTERN.pattern().length() - 1)
                 )
         );
     }
 
     private static Pattern createExpresionListPattern() {
-        return Pattern.compile("^(%s) ((,) (%s))*?$".formatted(
+        return Pattern.compile("^(%s)\\s*((,) (%s))*?$".formatted(
                         EXPRESSION_PATTERN.pattern().substring(1, EXPRESSION_PATTERN.pattern().length() - 1),
                         EXPRESSION_PATTERN.pattern().substring(1, EXPRESSION_PATTERN.pattern().length() - 1)
                 )
@@ -176,7 +188,7 @@ public class StatementPatterns {
     }
 
     private static Pattern createSubroutineBodyPattern() {
-        return Pattern.compile("^(\\{)\\s+(%s\\s*)*(%s)\\s+(\\})$".formatted(
+        return Pattern.compile("^(\\{)\\s+(?:%s\\s*)*(?:%s)\\s+(\\})$".formatted(
                         VAR_DECLARATION_PATTERN.pattern().substring(1, VAR_DECLARATION_PATTERN.pattern().length() - 1),
                         STATEMENTS_PATTERN.pattern().substring(1, STATEMENTS_PATTERN.pattern().length() - 1)
                 )
@@ -201,7 +213,7 @@ public class StatementPatterns {
     }
 
     private static Pattern parameterListPattern() {
-        return Pattern.compile("^(((%s)\\s+(%s))\\s+((,)\\s+(%s)\\s+(%s))*)?$".formatted(
+        return Pattern.compile("^(((%s)\\s+(%s))\\s+(:?(,)\\s+(%s)\\s+(%s))*)?$".formatted(
                         TYPE_PATTERN.pattern().substring(1, TYPE_PATTERN.pattern().length() - 1),
                         VAR_NAME_PATTERN.pattern().substring(1, VAR_NAME_PATTERN.pattern().length() - 1),
                         TYPE_PATTERN.pattern().substring(1, TYPE_PATTERN.pattern().length() - 1),
@@ -211,7 +223,7 @@ public class StatementPatterns {
     }
 
     private static Pattern createSubroutineDeclarationPattern() {
-        return Pattern.compile("^(constructor|function|method)\\s+(void|%s)\\s+(%s)\\s+(\\()(%s)(\\))$".formatted(
+        return Pattern.compile("^(constructor|function|method)\\s+(void|%s)\\s+(?:%s)\\s+(\\()(?:%s)(\\))$".formatted(
                         TYPE_PATTERN.pattern().substring(1, TYPE_PATTERN.pattern().length() - 1),
                         SUBROUTINE_NAME_PATTERN.pattern().substring(1, SUBROUTINE_NAME_PATTERN.pattern().length() - 1),
                         PARAMETER_LIST_PATTERN.pattern().substring(1, PARAMETER_LIST_PATTERN.pattern().length() - 1),
@@ -230,7 +242,7 @@ public class StatementPatterns {
     }
 
     private static Pattern createClassPattern() {
-        return Pattern.compile("^(class)\\s+(%s)\\s*(\\{)(%s\\s+)*(%s\\s*)*(\\})$".formatted(
+        return Pattern.compile("^(class)\\s+(%s)\\s*(\\{)(?:%s\\s+)*(?:%s\\s*)*(\\})$".formatted(
                         CLASS_NAME_PATTERN.pattern().substring(1, CLASS_NAME_PATTERN.pattern().length() - 1),
                         CLASS_VAR_DECLARATION_PATTERN.pattern().substring(1, CLASS_VAR_DECLARATION_PATTERN.pattern().length() - 1),
                         SUBROUTINE_DECLARATION_PATTERN.pattern().substring(1, SUBROUTINE_DECLARATION_PATTERN.pattern().length() - 1)

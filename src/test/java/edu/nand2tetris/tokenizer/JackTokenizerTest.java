@@ -41,24 +41,52 @@ public final class JackTokenizerTest {
     
     @Test
     public void simpleIfTest() {
-        final String line = "if (x < 0) {";
+        final String line = """
+                if (x < 0) {
+                    x = 0;
+                }
+                """;
 
         try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+            Assertions.assertEquals(Keyword.IF, jackTokenizer.keyword());
 
             jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.CHAR, jackTokenizer.keyword());
-
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals('(', jackTokenizer.symbol());
+            
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
-            Assertions.assertEquals("c", jackTokenizer.identifier());
+            Assertions.assertEquals("x", jackTokenizer.identifier());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals('<', jackTokenizer.symbol());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals('{', jackTokenizer.symbol());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
+            Assertions.assertEquals("x", jackTokenizer.identifier());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals('=', jackTokenizer.symbol());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.INT_CONST, jackTokenizer.tokenType());
+            Assertions.assertEquals(0, jackTokenizer.intVal());
 
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals(';', jackTokenizer.symbol());
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals('}', jackTokenizer.symbol());
 
             Assertions.assertFalse(jackTokenizer.hasMoreTokens());
         } catch (IOException e) {
