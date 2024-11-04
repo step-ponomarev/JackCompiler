@@ -74,11 +74,5 @@ final class RowTokenizer implements Function<String, Stream<String>> {
                 );
     }
 
-    private static Pattern createClassPattern() {
-        final String identifierPattern = TokenType.IDENTIFIER.pattern.pattern().substring(1, TokenType.IDENTIFIER.pattern.pattern().length() - 1);
-        return Pattern
-                .compile("^(class)\\s+(%s)\\s+((,)\\s*(%s))*(\\s*;)$"
-                        .formatted(identifierPattern, identifierPattern, identifierPattern)
-                );
-    }
+    
 }
