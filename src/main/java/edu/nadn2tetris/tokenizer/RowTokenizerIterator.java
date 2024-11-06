@@ -29,14 +29,12 @@ public final class RowTokenizerIterator implements Iterator<String> {
             throw new IllegalStateException("Unsupported start symbol");
         }
 
-        final String token = switch (tokenType) {
+        return switch (tokenType) {
             case INT -> getDigit();
             case LETTER -> getIdentificator();
             case SYMBOL -> getSymbol();
             case STRING_CONST -> getStringConst();
         };
-
-        return token;
     }
 
     private String getStringConst() {
