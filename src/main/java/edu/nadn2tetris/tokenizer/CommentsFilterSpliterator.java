@@ -6,12 +6,11 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 final class CommentsFilterSpliterator extends Spliterators.AbstractSpliterator<String> {
+    private static final Pattern COMMENTS_LINE_PATTERN = Pattern.compile("^(//.*|/\\*.*\\*/)$");
+    private static final Pattern COMMENTS_START_BLOCK_PATTERN = Pattern.compile("^/\\*.*$");
+    private static final Pattern COMMENTS_END_BLOCK_PATTERN = Pattern.compile("^.*\\*/$");
+
     private final Spliterator<String> source;
-
-    private final Pattern COMMENTS_LINE_PATTERN = Pattern.compile("^(//.*|/\\*.*\\*/)$");
-    private final Pattern COMMENTS_START_BLOCK_PATTERN = Pattern.compile("^/\\*.*$");
-    private final Pattern COMMENTS_END_BLOCK_PATTERN = Pattern.compile("^.*\\*/$");
-
     private boolean commentBlockStarted;
 
     public CommentsFilterSpliterator(Spliterator<String> source) {
