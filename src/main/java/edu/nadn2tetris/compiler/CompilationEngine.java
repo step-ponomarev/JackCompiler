@@ -1,5 +1,6 @@
 package edu.nadn2tetris.compiler;
 
+// странцица 310 10.1.3 Синтаксический раздел
 public final class CompilationEngine {
     public void compileClass() {
         throw new UnsupportedOperationException();
