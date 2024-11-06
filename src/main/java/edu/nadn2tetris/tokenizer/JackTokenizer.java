@@ -14,6 +14,7 @@ import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 
 public final class JackTokenizer implements Closeable {
+    private static final RowTokenizer ROW_TOKENIZER = new RowTokenizer();
     private final BufferedReader reader;
     private TokenType tokenType;
     private Keyword keyword;
@@ -28,7 +29,7 @@ public final class JackTokenizer implements Closeable {
 
         final Stream<String> lines = this.reader.lines();
         this.tokens = StreamSupport.stream(new RowFilterSpliterator(lines.spliterator()), false)
-                .flatMap(new RowTokenizer())
+                .flatMap(ROW_TOKENIZER)
                 .filter(Objects::nonNull)
                 .iterator();
     }
