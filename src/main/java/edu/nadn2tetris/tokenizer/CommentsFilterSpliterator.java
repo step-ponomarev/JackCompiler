@@ -22,10 +22,11 @@ final class CommentsFilterSpliterator extends Spliterators.AbstractSpliterator<S
     public boolean tryAdvance(Consumer<? super String> action) {
         return source.tryAdvance(row -> {
             boolean endComments = commentBlockStarted && COMMENTS_END_BLOCK_PATTERN.matcher(row).matches();
-            if (commentBlockStarted && !endComments) {
-                return;
-            } else if (commentBlockStarted) {
-                commentBlockStarted = false;
+            if (commentBlockStarted) {
+                if (endComments) {
+                    commentBlockStarted = false;
+                }
+                
                 return;
             }
 

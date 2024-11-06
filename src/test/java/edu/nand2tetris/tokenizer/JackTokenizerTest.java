@@ -107,14 +107,28 @@ public final class JackTokenizerTest {
                 /* smart comment
                 ablut how it works
                 */
-                                
+                   
+                var 
                 // simple comment
+                var
                                 
-                                
-                                
+                /*** one line block */
+                var                
                 """;
 
         try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
+            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
+            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+            
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
+            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+
             Assertions.assertFalse(jackTokenizer.hasMoreTokens());
         } catch (IOException e) {
             throw new RuntimeException(e);
