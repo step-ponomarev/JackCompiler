@@ -2,7 +2,7 @@ package edu.nadn2tetris.tokenizer;
 
 import java.util.Iterator;
 
-public final class RowTokenizerIterator implements Iterator<String> {
+final class RowTokenizerIterator implements Iterator<String> {
     private enum TokenType {
         LETTER,
         INT,
