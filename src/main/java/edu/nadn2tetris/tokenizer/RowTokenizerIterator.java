@@ -104,7 +104,7 @@ public final class RowTokenizerIterator implements Iterator<String> {
                 ? TokenType.INT
                 : ch == '"'
                 ? TokenType.STRING_CONST
-                : edu.nadn2tetris.tokenizer.TokenType.SYMBOL.pattern.matcher(String.valueOf(ch)).matches()
+                : edu.nadn2tetris.common.TokenType.SYMBOL.pattern.matcher(String.valueOf(ch)).matches()
                 ? TokenType.SYMBOL
                 : null;
     }

@@ -1,4 +1,4 @@
-package edu.nadn2tetris.tokenizer;
+package edu.nadn2tetris.common;
 
 import java.util.regex.Pattern;
 

@@ -10,6 +10,9 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import edu.nadn2tetris.common.Keyword;
+import edu.nadn2tetris.common.TokenType;
+
 public final class JackTokenizer implements Closeable {
     private final BufferedReader reader;
     private TokenType tokenType;
