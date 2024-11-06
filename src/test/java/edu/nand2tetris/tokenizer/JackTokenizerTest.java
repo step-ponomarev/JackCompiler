@@ -108,12 +108,12 @@ public final class JackTokenizerTest {
                 ablut how it works
                 */
                    
-                var 
+                var
                 // simple comment
                 var
                                 
                 /*** one line block */
-                var                
+                var
                 """;
 
         try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
