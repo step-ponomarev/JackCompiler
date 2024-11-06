@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.Keyword;
-import edu.nadn2tetris.tokenizer.StatementPatterns;
 import edu.nadn2tetris.tokenizer.TokenType;
 
 public final class JackTokenizerTest {
@@ -38,7 +37,7 @@ public final class JackTokenizerTest {
             throw new RuntimeException(e);
         }
     }
-    
+
     @Test
     public void simpleIfTest() {
         final String line = """
@@ -55,27 +54,35 @@ public final class JackTokenizerTest {
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals('(', jackTokenizer.symbol());
-            
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
             Assertions.assertEquals("x", jackTokenizer.identifier());
-            
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals('<', jackTokenizer.symbol());
-            
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.INT_CONST, jackTokenizer.tokenType());
+            Assertions.assertEquals(0, jackTokenizer.intVal());
+
+            jackTokenizer.advance();
+            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
+            Assertions.assertEquals(')', jackTokenizer.symbol());
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals('{', jackTokenizer.symbol());
-            
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
             Assertions.assertEquals("x", jackTokenizer.identifier());
-            
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals('=', jackTokenizer.symbol());
-            
+
             jackTokenizer.advance();
             Assertions.assertEquals(TokenType.INT_CONST, jackTokenizer.tokenType());
             Assertions.assertEquals(0, jackTokenizer.intVal());
@@ -88,6 +95,26 @@ public final class JackTokenizerTest {
             Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
             Assertions.assertEquals('}', jackTokenizer.symbol());
 
+            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void commentsBlockTest() {
+        final String line = """
+                /* smart comment
+                ablut how it works
+                */
+                                
+                // simple comment
+                                
+                                
+                                
+                """;
+
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
             Assertions.assertFalse(jackTokenizer.hasMoreTokens());
         } catch (IOException e) {
             throw new RuntimeException(e);

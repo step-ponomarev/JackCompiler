@@ -6,15 +6,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public final class JackTokenizer implements Closeable {
     private final BufferedReader reader;
-
     private TokenType tokenType;
     private Keyword keyword;
-
     private char symbol;
     private short intVal;
     private String identifier;
@@ -25,9 +24,9 @@ public final class JackTokenizer implements Closeable {
         this.reader = new BufferedReader(new InputStreamReader(is));
 
         final Stream<String> lines = this.reader.lines();
-        this.tokens = StreamSupport.stream(new RowAccumulatorSpliterator(lines.spliterator(), StatementPatterns::matches), false)
-                .filter(new RowFilter())
+        this.tokens = StreamSupport.stream(new CommentsFilterSpliterator(lines.spliterator()), false)
                 .flatMap(new RowTokenizer())
+                .filter(Objects::nonNull)
                 .iterator();
     }
 
@@ -41,7 +40,7 @@ public final class JackTokenizer implements Closeable {
                 throw new IllegalStateException("End of file!");
             }
 
-            String currToken = this.tokens.next();
+            final String currToken = this.tokens.next();
             tokenType = TokenType.parse(currToken);
             if (tokenType == null) {
                 throw new RuntimeException("Unsupported currToken: " + currToken);
