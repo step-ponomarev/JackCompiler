@@ -10,10 +10,7 @@ final class RowTokenizer implements Function<String, Stream<String>> {
     @Override
     public Stream<String> apply(String row) {
         return StreamSupport.stream(
-                Spliterators.spliteratorUnknownSize(
-                        new RowTokenizerIterator(row),
-                        Spliterator.ORDERED
-                ),
+                Spliterators.spliteratorUnknownSize(new RowTokenizerIterator(row), Spliterator.ORDERED),
                 false
         );
     }

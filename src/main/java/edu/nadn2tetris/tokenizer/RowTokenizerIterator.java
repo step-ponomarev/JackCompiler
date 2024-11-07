@@ -38,18 +38,18 @@ final class RowTokenizerIterator implements Iterator<String> {
     }
 
     private String getStringConst() {
-        final StringBuilder token = new StringBuilder();
-        token.append(row.charAt(i++));
+        final int start = i;
+        int end = start + 1;
 
-        while (i < row.length()) {
-            final char ch = row.charAt(i++);
-            token.append(ch);
+        while (end < row.length()) {
+            final char ch = row.charAt(end++);
             if (ch == '"') {
                 break;
             }
         }
+        i = end;
 
-        return token.toString();
+        return row.substring(start, end);
     }
 
     private String getSymbol() {
@@ -57,33 +57,37 @@ final class RowTokenizerIterator implements Iterator<String> {
     }
 
     private String getIdentificator() {
-        final StringBuilder token = new StringBuilder();
-        while (i < row.length()) {
-            final char ch = row.charAt(i);
+        final int start = i;
+        int end = start + 1;
+
+        while (end < row.length()) {
+            final char ch = row.charAt(end);
             if (!Character.isLetterOrDigit(ch)) {
                 break;
             }
 
-            token.append(ch);
-            i++;
+            end++;
         }
+        i = end;
 
-        return token.toString();
+        return row.substring(start, end);
     }
 
     private String getDigit() {
-        final StringBuilder token = new StringBuilder();
-        while (i < row.length()) {
-            final char ch = row.charAt(i);
+        final int start = i;
+        int end = start + 1;
+
+        while (end < row.length()) {
+            final char ch = row.charAt(end);
             if (!Character.isDigit(ch)) {
                 break;
             }
 
-            token.append(ch);
-            i++;
+            end++;
         }
+        i = end;
 
-        return token.toString();
+        return row.substring(start, end);
     }
 
     private TokenType getTokenType() {
