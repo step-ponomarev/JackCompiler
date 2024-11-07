@@ -3,7 +3,7 @@ package edu.nadn2tetris.tokenizer;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-final class RowFilterSpliterator implements Predicate<String> {
+final class RowFilter implements Predicate<String> {
     private static final Pattern COMMENTS_LINE_PATTERN = Pattern.compile("^(//.*|/\\*.*\\*/)$");
     private static final Pattern COMMENTS_START_BLOCK_PATTERN = Pattern.compile("^/\\*.*$");
     private static final Pattern COMMENTS_END_BLOCK_PATTERN = Pattern.compile("^.*\\*/$");
