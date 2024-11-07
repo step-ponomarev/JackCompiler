@@ -60,6 +60,7 @@ final class RowTokenizerIterator implements Iterator<String> {
         final int start = i;
         int end = start + 1;
 
+        //TODO support _
         while (end < row.length()) {
             final char ch = row.charAt(end);
             if (!Character.isLetterOrDigit(ch)) {

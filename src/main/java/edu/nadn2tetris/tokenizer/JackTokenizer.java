@@ -22,7 +22,7 @@ public final class JackTokenizer implements Closeable {
     private String stringVal;
     private final Iterator<String> tokens;
 
-    public JackTokenizer(InputStream is) throws IOException {
+    public JackTokenizer(InputStream is) {
         this.reader = new BufferedReader(new InputStreamReader(is));
         this.tokens = this.reader.lines()
                 .filter(new RowFilter())
