@@ -7,8 +7,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 import java.util.Objects;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
@@ -26,7 +24,8 @@ public final class JackTokenizer implements Closeable {
 
     public JackTokenizer(InputStream is) throws IOException {
         this.reader = new BufferedReader(new InputStreamReader(is));
-        this.tokens = StreamSupport.stream(new RowFilterSpliterator(this.reader.lines().spliterator()), false)
+        this.tokens = this.reader.lines()
+                .filter(new RowFilterSpliterator())
                 .flatMap(ROW_TOKENIZER)
                 .filter(Objects::nonNull)
                 .iterator();
