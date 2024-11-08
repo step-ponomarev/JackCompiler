@@ -49,11 +49,9 @@ public final class CompilationEngine implements Closeable {
 
     public void compileVarDec() {
         final StringBuilder varXml = new StringBuilder(wrapKeyword(Keyword.VAR));
-        tokenizer.advance();
+        advance();
         TokenType tokenType = tokenizer.tokenType();
-        if (tokenType != TokenType.IDENTIFIER && tokenType != TokenType.KEYWORD) {
-            throw new IllegalStateException("Expected identifier or keyword, but got: " + tokenType);
-        }
+
         if (tokenType == TokenType.IDENTIFIER) {
             varXml.append(wrapIdentifier(tokenizer.identifier()));
         } else {
@@ -67,26 +65,18 @@ public final class CompilationEngine implements Closeable {
      * @return hasMore
      */
     private StringBuilder writeVarDec(StringBuilder varDecXml) {
-        tokenizer.advance();
+        advance();
         TokenType tokenType = tokenizer.tokenType();
         if (tokenType != TokenType.IDENTIFIER) {
             throw new IllegalStateException("Expected identifier, but got: " + tokenType);
         }
         varDecXml.append(wrapIdentifier(tokenizer.identifier()));
 
-        tokenizer.advance();
-        tokenType = tokenizer.tokenType();
-        if (tokenType != TokenType.SYMBOL) {
-            throw new IllegalStateException("Expected symbol, but got: " + tokenType);
-        }
-
+        advance();
         if (tokenizer.symbol() == ';') {
             return varDecXml.append(wrapSymbol(tokenizer.symbol()));
         }
 
-        if (tokenizer.symbol() != ',') {
-            throw new IllegalStateException("Unsupported symbol: " + tokenizer.symbol());
-        }
         varDecXml.append(wrapSymbol(tokenizer.symbol()));
 
         return writeVarDec(varDecXml);
@@ -97,27 +87,105 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileLet() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeLet(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeLet(StringBuilder letXml) {
+        letXml.append(wrapKeyword(Keyword.LET));
+
+        advance();
+        letXml.append(wrapIdentifier(tokenizer.identifier()));
+
+        advance();
+        final boolean array = tokenizer.symbol() == '[';
+        if (array) {
+            letXml.append(wrapSymbol(tokenizer.symbol()));
+            advance();
+            writeExpression(letXml);
+
+            advance();
+            letXml.append(wrapSymbol(tokenizer.symbol()));
+
+            // =
+            advance();
+        }
+
+        // =
+        letXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        writeExpression(letXml);
+
+        advance();
+        return letXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
     }
 
     public void compileIf() {
-        throw new UnsupportedOperationException();
+        //{
+        level++;
+
+        level--;
+        //}
     }
 
     public void compileWhile() {
-        throw new UnsupportedOperationException();
+        final StringBuilder doXml = new StringBuilder(wrapKeyword(Keyword.WHILE));
+
+        advance();
+        doXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        writeExpression(doXml);
+
+        advance();
+        doXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        doXml.append(wrapSymbol(tokenizer.symbol()));
+        level++;
+        //TODO: тут остановился
+        //statements
+
+        level--;
+        advance();
+        doXml.append(wrapSymbol(tokenizer.symbol()));
     }
 
     public void compileDo() {
-        throw new UnsupportedOperationException();
+        final StringBuilder doXml = new StringBuilder(wrapKeyword(Keyword.DO));
+
+        advance();
+        xml.append(
+                writeSubroutineCall(doXml)
+        );
     }
 
     public void compileReturn() {
-        throw new UnsupportedOperationException();
+        final StringBuilder returnXml = new StringBuilder(wrapKeyword(Keyword.RETURN));
+
+        advance();
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
+            xml.append(
+                    returnXml.append(wrapSymbol(tokenizer.symbol()))
+            );
+            return;
+        }
+
+        writeExpression(returnXml);
+        advance();
+        returnXml.append(wrapSymbol(tokenizer.symbol()));
+
+        xml.append(returnXml);
     }
 
     public void compileExpression() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeExpression(new StringBuilder())
+        );
     }
 
     public void compileTerm() {
@@ -132,72 +200,177 @@ public final class CompilationEngine implements Closeable {
             case INT_CONST -> termXml.append(wrapIntConst(tokenizer.intVal()));
             case STRING_CONST -> termXml.append(wrapStringConst(tokenizer.stringVal()));
             case KEYWORD -> termXml.append(wrapKeyword(tokenizer.keyword()));
-            //TODO: add subruitineCall
             case IDENTIFIER -> writeTermIdentifier(termXml);
             case SYMBOL -> writeTermSymbol(termXml);
-            default -> throw new IllegalStateException("Unsupported token type: " + tokenType);
         };
     }
 
     private StringBuilder writeTermSymbol(StringBuilder termXml) {
-        if (tokenizer.tokenType() != TokenType.SYMBOL || (tokenizer.symbol() != '(' && !isOp(tokenizer.symbol()))) {
-            throw new IllegalStateException("Unexpected token type: " + tokenizer.tokenType());
-        }
-
         termXml.append(wrapSymbol(tokenizer.symbol()));
-        final boolean isOp = isOp(tokenizer.symbol());
+        final boolean isOp = isUnaryOp(tokenizer.symbol());
         if (!isOp) {
-            tokenizer.advance();
+            advance();
             writeExpression(termXml);
 
-            tokenizer.advance();
-            if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
-                throw new IllegalStateException("Unexpected token type: " + tokenizer.tokenType());
-            }
+            advance();
             return termXml.append(wrapSymbol(tokenizer.symbol()));
         }
 
 
         termXml.append(wrapSymbol(tokenizer.symbol()));
-        tokenizer.advance();
+        advance();
 
         return writeTerm(termXml);
     }
 
-    private static boolean isOp(char op) {
-        return op == '+' || op == '-' || op == '*' || op == '/' || op == '&' || op == '|';
+    private static boolean isUnaryOp(char op) {
+        return op == '-' || op == '~';
     }
 
-    private StringBuilder writeTermIdentifier(StringBuilder termXml) {
-        termXml.append(wrapIdentifier(tokenizer.identifier()));
-        tokenizer.advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '(') {
+    private static boolean isOp(char op) {
+        return op == '+'
+                || op == '-'
+                || op == '*'
+                || op == '/'
+                || op == '&'
+                || op == '|'
+                || op == '<'
+                || op == '>'
+                || op == '=';
+    }
+
+    private StringBuilder writeTermIdentifier(StringBuilder identefierXml) {
+        identefierXml.append(wrapIdentifier(tokenizer.identifier()));
+
+        advance();
+        if (tokenizer.tokenType() != TokenType.SYMBOL) {
             nextChecked = true;
-            return termXml;
+            return identefierXml;
         }
-        termXml.append(wrapSymbol(tokenizer.symbol()));
 
-        tokenizer.advance();
-        writeExpression(termXml);
+        final boolean isArray = tokenizer.symbol() == '[';
+        if (tokenizer.symbol() == '(' || isArray) {
+            identefierXml.append(wrapSymbol(tokenizer.symbol()));
 
-        tokenizer.advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
-            throw new IllegalStateException("Unexpected token type: " + tokenizer.tokenType());
+            advance();
+            writeExpressionList(identefierXml);
+
+            advance();
+            identefierXml.append(wrapSymbol(tokenizer.symbol()));
         }
-        termXml.append(wrapSymbol(tokenizer.symbol()));
 
-        return termXml;
+        if (isArray) {
+            return identefierXml;
+        }
+
+        // subroutineCall
+        if (!tokenizer.hasMoreTokens()) {
+            return identefierXml;
+        }
+
+        advance();
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '.') {
+            nextChecked = true;
+            return identefierXml;
+        }
+
+        identefierXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+
+        return writeSubroutineCallAfterDot(identefierXml);
+    }
+
+    private StringBuilder writeSubroutineCall(StringBuilder subroutineXml) {
+        subroutineXml.append(wrapIdentifier(tokenizer.identifier()));
+
+        boolean idintifier = false;
+        advance();
+        if (tokenizer.symbol() == '(') {
+            advance();
+            writeExpressionList(subroutineXml);
+
+            advance();
+            subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+            wrapSymbol(tokenizer.symbol());
+        } else {
+            idintifier = true;
+        }
+
+        if (!idintifier) {
+            advance();
+        }
+        //dot
+        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+
+        return writeSubroutineCallAfterDot(subroutineXml);
+    }
+
+    //...'.'
+    private StringBuilder writeSubroutineCallAfterDot(StringBuilder subroutineXml) {
+        subroutineXml.append(wrapIdentifier(tokenizer.identifier()));
+
+        advance();
+        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        writeExpressionList(subroutineXml);
+
+        advance();
+        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+
+        return subroutineXml;
     }
 
     private StringBuilder writeExpression(StringBuilder expressionXml) {
-        final StringBuilder stringBuilder = writeTerm(expressionXml);
-            // term (op term)*
-        
+        final StringBuilder expression = writeTerm(expressionXml);
+        if (!tokenizer.hasMoreTokens()) {
+            return expression;
+        }
+
+        advance();
+        if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
+            expression.append(wrapSymbol(tokenizer.symbol()));
+            advance();
+            return writeTerm(expressionXml);
+        } else {
+            this.nextChecked = true;
+        }
+
         return expressionXml;
     }
 
-    public short compileExpressionList() {
-        throw new UnsupportedOperationException();
+    private void advance() {
+        if (nextChecked) {
+            nextChecked = false;
+            return;
+        }
+
+        tokenizer.advance();
+    }
+
+    public void compileExpressionList() {
+        xml.append(
+                writeExpressionList(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeExpressionList(StringBuilder expressionXml) {
+        final StringBuilder expression = writeExpression(expressionXml);
+        if (!tokenizer.hasMoreTokens()) {
+            return expression;
+        }
+
+        advance();
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+            expression.append(wrapSymbol(tokenizer.symbol()));
+            advance();
+            return writeExpressionList(expressionXml);
+        } else {
+            this.nextChecked = true;
+        }
+
+        return expressionXml;
     }
 
     private String wrapKeyword(Keyword keyword) {

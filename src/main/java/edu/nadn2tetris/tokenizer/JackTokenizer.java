@@ -31,32 +31,28 @@ public final class JackTokenizer implements Closeable {
                 .iterator();
     }
 
-    public boolean hasMoreTokens() throws IOException {
+    public boolean hasMoreTokens() {
         return tokens.hasNext();
     }
 
     public void advance() {
-        try {
-            if (!this.hasMoreTokens()) {
-                throw new IllegalStateException("End of file!");
-            }
+        if (!this.hasMoreTokens()) {
+            throw new IllegalStateException("End of file!");
+        }
 
-            final String currToken = this.tokens.next();
-            tokenType = TokenType.parse(currToken);
-            if (tokenType == null) {
-                throw new RuntimeException("Unsupported currToken: " + currToken);
-            }
+        final String currToken = this.tokens.next();
+        tokenType = TokenType.parse(currToken);
+        if (tokenType == null) {
+            throw new RuntimeException("Unsupported currToken: " + currToken);
+        }
 
-            switch (tokenType) {
-                case SYMBOL -> this.symbol = currToken.charAt(0);
-                case KEYWORD -> this.keyword = Keyword.parse(currToken);
-                case INT_CONST -> this.intVal = Short.parseShort(currToken);
-                case IDENTIFIER -> this.identifier = currToken;
-                case STRING_CONST -> this.stringVal = currToken.substring(1, currToken.length() - 1);
-                default -> throw new IllegalArgumentException("Unsupported currToken type: " + tokenType);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        switch (tokenType) {
+            case SYMBOL -> this.symbol = currToken.charAt(0);
+            case KEYWORD -> this.keyword = Keyword.parse(currToken);
+            case INT_CONST -> this.intVal = Short.parseShort(currToken);
+            case IDENTIFIER -> this.identifier = currToken;
+            case STRING_CONST -> this.stringVal = currToken.substring(1, currToken.length() - 1);
+            default -> throw new IllegalArgumentException("Unsupported currToken type: " + tokenType);
         }
     }
 
