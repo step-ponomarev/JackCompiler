@@ -13,7 +13,7 @@ import edu.nadn2tetris.tokenizer.JackTokenizer;
 // странцица 310 10.1.3 Синтаксический раздел
 // Читаем первый символ от Tokenizer(a), решаем что за конструкция перед нами - рендерим конструкцию.
 public final class CompilationEngine implements Closeable {
-    private static final String TAB = "\n";
+    private static final String TAB = "\t";
     private final JackTokenizer tokenizer;
     private final BufferedWriter bufferedWriter;
     private final StringBuilder xml = new StringBuilder();
@@ -32,7 +32,46 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClassVarDec() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeClassVarDec(
+                        new StringBuilder()
+                )
+        );
+    }
+
+    private StringBuilder writeClassVarDec(StringBuilder varDexXml) {
+        varDexXml.append(
+                wrapKeyword(tokenizer.keyword())
+        );
+
+        advance();
+        varDexXml.append(
+                tokenizer.tokenType() == TokenType.IDENTIFIER
+                        ? wrapIdentifier(tokenizer.identifier())
+                        : wrapKeyword(tokenizer.keyword())
+        );
+        
+        advance();
+        varDexXml.append(
+                tokenizer.identifier()
+        );
+        
+        if (!tokenizer.hasMoreTokens()) {
+            return varDexXml;
+        }
+        
+        advance();
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ',') {
+            nextChecked = true;
+            return varDexXml;
+        }
+        
+        //,
+        varDexXml.append(
+                tokenizer.symbol()
+        );
+        
+        return writeVarDec(varDexXml);
     }
 
     public void compileSubroutine() {
@@ -40,7 +79,50 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileParameterList() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeParameterList(new StringBuilder())
+        );
+    }
+    
+    private StringBuilder writeParameterList(StringBuilder parameterListXml) {
+        if (!isType(tokenizer)) {
+            nextChecked = true;
+            return parameterListXml;
+        }
+        
+        writeType(parameterListXml);
+        
+        advance();
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
+            nextChecked = true;
+            return parameterListXml;
+        }
+        
+        //,
+        parameterListXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+        
+        advance();
+        return writeParameterList(parameterListXml);
+    }
+
+    private StringBuilder writeType(StringBuilder type) {
+        return type.append(
+                tokenizer.tokenType() == TokenType.KEYWORD
+                        ? wrapKeyword(tokenizer.keyword())
+                        : wrapIdentifier(tokenizer.identifier())
+        );
+    }
+    
+    private static boolean isType(JackTokenizer tokenizer) {
+        if (tokenizer.tokenType() == TokenType.KEYWORD) {
+            return tokenizer.keyword() == Keyword.INT 
+                    || tokenizer.keyword() == Keyword.CHAR 
+                    || tokenizer.keyword() == Keyword.BOOLEAN;
+        }
+        
+        return tokenizer.tokenType() == TokenType.IDENTIFIER;
     }
 
     public void compileSubroutineBody() {
@@ -66,10 +148,6 @@ public final class CompilationEngine implements Closeable {
      */
     private StringBuilder writeVarDec(StringBuilder varDecXml) {
         advance();
-        TokenType tokenType = tokenizer.tokenType();
-        if (tokenType != TokenType.IDENTIFIER) {
-            throw new IllegalStateException("Expected identifier, but got: " + tokenType);
-        }
         varDecXml.append(wrapIdentifier(tokenizer.identifier()));
 
         advance();

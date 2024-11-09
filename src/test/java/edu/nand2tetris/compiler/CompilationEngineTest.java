@@ -5,11 +5,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PipedOutputStream;
 import java.util.stream.Collectors;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.compiler.CompilationEngine;
@@ -46,7 +43,13 @@ public final class CompilationEngineTest {
     public void testCompileIf() {
         final String line = """
                 if (x < 0) {
-                    x = 0;
+                    if (x < 0) {
+                       while (x < 0) {
+                            let x = 1;
+                        }
+                    }
+                    
+                    let x = 0;
                 }
                 """;
 
@@ -60,7 +63,8 @@ public final class CompilationEngineTest {
             compilationEngine.flush();
             
             final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-            System.out.println(reader.lines().collect(Collectors.joining()));
+            String Str = reader.lines().collect(Collectors.joining(""));
+            System.out.println(Str);
             reader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
