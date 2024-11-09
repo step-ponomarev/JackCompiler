@@ -37,26 +37,20 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeClass(StringBuilder classXml) {
-        classXml.append(wrapKeyword(Keyword.CLASS));
+        append(classXml);
 
         advance();
-        classXml.append(
-                wrapIdentifier(tokenizer.identifier())
-        );
+        append(classXml);
 
         // {
         advance();
-        classXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(classXml);
         level++;
-
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
             level--;
-            xml.append(wrapSymbol(tokenizer.symbol()));
-            return classXml;
+            return append(classXml);
         }
 
         while (tokenizer.tokenType() == TokenType.KEYWORD && isClassVarDec(tokenizer.keyword())) {
@@ -71,9 +65,7 @@ public final class CompilationEngine implements Closeable {
 
         level--;
         // }
-        classXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(classXml);
 
         return classXml;
     }
@@ -97,21 +89,13 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeClassVarDec(StringBuilder varDexXml) {
-        varDexXml.append(
-                wrapKeyword(tokenizer.keyword())
-        );
+        append(varDexXml);
 
         advance();
-        varDexXml.append(
-                tokenizer.tokenType() == TokenType.IDENTIFIER
-                        ? wrapIdentifier(tokenizer.identifier())
-                        : wrapKeyword(tokenizer.keyword())
-        );
+        append(varDexXml);
 
         advance();
-        varDexXml.append(
-                tokenizer.identifier()
-        );
+        append(varDexXml);
 
         if (!tokenizer.hasMoreTokens()) {
             return varDexXml;
@@ -124,9 +108,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         //,
-        varDexXml.append(
-                tokenizer.symbol()
-        );
+        append(varDexXml);
 
         advance();
         return writeVarDec(varDexXml);
@@ -139,36 +121,28 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeSubroutineDec(StringBuilder subroutineDecXml) {
-        subroutineDecXml.append(
-                wrapKeyword(tokenizer.keyword())
-        );
+        append(subroutineDecXml);
 
         advance();
         if (isType(tokenizer)) {
             writeType(subroutineDecXml);
         } else {
-            subroutineDecXml.append(wrapKeyword(Keyword.VOID));
+            append(subroutineDecXml);
         }
 
         advance();
-        subroutineDecXml.append(
-                wrapIdentifier(tokenizer.identifier())
-        );
+        append(subroutineDecXml);
 
         //(
         advance();
-        subroutineDecXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(subroutineDecXml);
 
         advance();
         writeParameterList(subroutineDecXml);
 
         //)
         advance();
-        subroutineDecXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(subroutineDecXml);
 
         advance();
         return writeSubroutineBody(subroutineDecXml);
@@ -182,9 +156,7 @@ public final class CompilationEngine implements Closeable {
 
     private StringBuilder writeSubroutineBody(StringBuilder subroutineXml) {
         //{
-        subroutineXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(subroutineXml);
         level++;
 
         advance();
@@ -198,9 +170,7 @@ public final class CompilationEngine implements Closeable {
         //}
         level--;
         advance();
-        subroutineXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(subroutineXml);
 
         return subroutineXml;
     }
@@ -226,9 +196,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         //,
-        parameterListXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        append(parameterListXml);
 
         advance();
         return writeParameterList(parameterListXml);
@@ -266,7 +234,7 @@ public final class CompilationEngine implements Closeable {
      */
     private StringBuilder writeVarDec(StringBuilder varDecXml, boolean list) {
         if (!list) {
-            varDecXml.append(wrapKeyword(tokenizer.keyword()));
+            append(varDecXml);
 
             advance();
             writeType(varDecXml);
@@ -274,14 +242,14 @@ public final class CompilationEngine implements Closeable {
             advance();
         }
 
-        varDecXml.append(wrapIdentifier(tokenizer.identifier()));
+        append(varDecXml);
 
         advance();
         if (tokenizer.symbol() == ';') {
-            return varDecXml.append(wrapSymbol(tokenizer.symbol()));
+            return append(varDecXml);
         }
 
-        varDecXml.append(wrapSymbol(tokenizer.symbol()));
+        append(varDecXml);
 
         advance();
         return writeVarDec(varDecXml, true);
@@ -336,35 +304,33 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeLet(StringBuilder letXml) {
-        letXml.append(wrapKeyword(Keyword.LET));
+        append(letXml);
 
         advance();
-        letXml.append(wrapIdentifier(tokenizer.identifier()));
+        append(letXml);
 
         advance();
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
-            letXml.append(wrapSymbol(tokenizer.symbol()));
+            append(letXml);
             advance();
             writeExpression(letXml);
 
             advance();
-            letXml.append(wrapSymbol(tokenizer.symbol()));
+            append(letXml);
 
             // =
             advance();
         }
 
         // =
-        letXml.append(wrapSymbol(tokenizer.symbol()));
+        append(letXml);
 
         advance();
         writeExpression(letXml);
 
         advance();
-        return letXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        return append(letXml);
     }
 
     public void compileIf() {
@@ -374,7 +340,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeIf(StringBuilder ifXml) {
-        ifXml.append(wrapKeyword(Keyword.IF));
+        append(ifXml);
 
         advance();
         writeConditionalStatements(ifXml);
@@ -388,12 +354,10 @@ public final class CompilationEngine implements Closeable {
             return ifXml;
         }
 
-        ifXml.append(
-                wrapKeyword(tokenizer.keyword())
-        );
+        append(ifXml);
 
         advance();
-        ifXml.append(wrapSymbol(tokenizer.symbol()));
+        append(ifXml);
         level++;
 
         advance();
@@ -402,7 +366,7 @@ public final class CompilationEngine implements Closeable {
         level--;
         advance();
 
-        return ifXml.append(wrapSymbol(tokenizer.symbol()));
+        return append(ifXml);
     }
 
     public void compileWhile() {
@@ -412,24 +376,24 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeWhile(StringBuilder whileXml) {
-        whileXml.append(wrapKeyword(Keyword.WHILE));
+        append(whileXml);
         advance();
 
         return writeConditionalStatements(whileXml);
     }
 
     private StringBuilder writeConditionalStatements(StringBuilder localXml) {
-        localXml.append(wrapSymbol(tokenizer.symbol()));
+        append(localXml);
 
         advance();
         writeExpression(localXml);
 
         advance();
-        localXml.append(wrapSymbol(tokenizer.symbol()));
+        append(localXml);
 
         // {
         advance();
-        localXml.append(wrapSymbol(tokenizer.symbol()));
+        append(localXml);
         level++;
 
         advance();
@@ -438,7 +402,7 @@ public final class CompilationEngine implements Closeable {
         level--;
         advance();
 
-        return localXml.append(wrapSymbol(tokenizer.symbol()));
+        return append(localXml);
     }
 
     public void compileDo() {
@@ -449,15 +413,13 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeDo(StringBuilder doXml) {
-        doXml.append(wrapKeyword(Keyword.DO));
-        
+        append(doXml);
+
         advance();
         writeSubroutineCall(doXml);
-        
+
         advance();
-        return doXml.append(
-                wrapSymbol(tokenizer.symbol())
-        );
+        return append(doXml);
     }
 
     public void compileReturn() {
@@ -467,16 +429,16 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeReturn(StringBuilder returnXml) {
-        returnXml.append(wrapKeyword(Keyword.RETURN));
+        append(returnXml);
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            return returnXml.append(wrapSymbol(tokenizer.symbol()));
+            return append(returnXml);
         }
 
         writeExpression(returnXml);
         advance();
-        return returnXml.append(wrapSymbol(tokenizer.symbol()));
+        return append(returnXml);
     }
 
     public void compileExpression() {
@@ -507,19 +469,19 @@ public final class CompilationEngine implements Closeable {
             nextChecked = true;
             return termXml;
         }
-        
-        termXml.append(wrapSymbol(tokenizer.symbol()));
+
+        append(termXml);
         final boolean isOp = isUnaryOp(tokenizer.symbol());
         if (!isOp) {
             advance();
             writeExpression(termXml);
 
             advance();
-            return termXml.append(wrapSymbol(tokenizer.symbol()));
+            return append(termXml);
         }
 
 
-        termXml.append(wrapSymbol(tokenizer.symbol()));
+        append(termXml);
         advance();
 
         return writeTerm(termXml);
@@ -542,7 +504,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeTermIdentifier(StringBuilder identefierXml) {
-        identefierXml.append(wrapIdentifier(tokenizer.identifier()));
+        append(identefierXml);
 
         //just identifier
         advance();
@@ -554,13 +516,13 @@ public final class CompilationEngine implements Closeable {
         //array, expression
         final boolean isArray = tokenizer.symbol() == '[';
         if (tokenizer.symbol() == '(' || isArray) {
-            identefierXml.append(wrapSymbol(tokenizer.symbol()));
+            append(identefierXml);
 
             advance();
             writeExpressionList(identefierXml);
 
             advance();
-            identefierXml.append(wrapSymbol(tokenizer.symbol()));
+            append(identefierXml);
 
             if (isArray) {
                 return identefierXml;
@@ -568,18 +530,10 @@ public final class CompilationEngine implements Closeable {
 
             // .
             advance();
-            identefierXml.append(
-                    wrapSymbol(
-                            tokenizer.symbol()
-                    )
-            );
+            append(identefierXml);
         } else if (tokenizer.symbol() == '.') {
             // subroutineCall
-            identefierXml.append(
-                    wrapSymbol(
-                            tokenizer.symbol()
-                    )
-            );
+            append(identefierXml);
         } else {
             nextChecked = true;
             return identefierXml;
@@ -590,22 +544,21 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeSubroutineCall(StringBuilder subroutineXml) {
-        subroutineXml.append(wrapIdentifier(tokenizer.identifier()));
-        
+        append(subroutineXml);
+
         advance();
         if (tokenizer.symbol() == '(') {
             advance();
             writeExpressionList(subroutineXml);
 
             advance();
-            subroutineXml.append(wrapSymbol(tokenizer.symbol()));
-            wrapSymbol(tokenizer.symbol());
-            
+            append(subroutineXml);
+
             advance();
         }
-        
+
         //dot
-        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+        append(subroutineXml);
 
         advance();
         return writeSubroutineCallAfterDot(subroutineXml);
@@ -613,16 +566,16 @@ public final class CompilationEngine implements Closeable {
 
     //...'.'
     private StringBuilder writeSubroutineCallAfterDot(StringBuilder subroutineXml) {
-        subroutineXml.append(wrapIdentifier(tokenizer.identifier()));
+        append(subroutineXml);
 
         advance();
-        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+        append(subroutineXml);
 
         advance();
         writeExpressionList(subroutineXml);
 
         advance();
-        subroutineXml.append(wrapSymbol(tokenizer.symbol()));
+        append(subroutineXml);
 
         return subroutineXml;
     }
@@ -635,7 +588,7 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
-            expressionXml.append(wrapSymbol(tokenizer.symbol()));
+            append(expressionXml);
             advance();
             return writeTerm(expressionXml);
         } else {
@@ -661,14 +614,14 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeExpressionList(StringBuilder expressionXml) {
-        final StringBuilder expression = writeExpression(expressionXml);
+        writeExpression(expressionXml);
         if (!tokenizer.hasMoreTokens()) {
-            return expression;
+            return expressionXml;
         }
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
-            expression.append(wrapSymbol(tokenizer.symbol()));
+            append(expressionXml);
             advance();
             return writeExpressionList(expressionXml);
         } else {
@@ -676,6 +629,17 @@ public final class CompilationEngine implements Closeable {
         }
 
         return expressionXml;
+    }
+
+    private StringBuilder append(StringBuilder builder) {
+        return switch (tokenizer.tokenType()) {
+            case KEYWORD -> builder.append(wrapKeyword(tokenizer.keyword()));
+            case IDENTIFIER -> builder.append(wrapIdentifier(tokenizer.identifier()));
+            case SYMBOL -> builder.append(wrapSymbol(tokenizer.symbol()));
+            case INT_CONST -> builder.append(wrapIntConst(tokenizer.intVal()));
+            case STRING_CONST -> builder.append(wrapStringConst(tokenizer.stringVal()));
+            default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
+        };
     }
 
     private String wrapKeyword(Keyword keyword) {
