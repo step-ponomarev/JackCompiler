@@ -72,7 +72,7 @@ public final class CompilationEngine implements Closeable {
         level--;
         // }
         classXml.append(
-                tokenizer.symbol()
+                wrapSymbol(tokenizer.symbol())
         );
 
         return classXml;
@@ -256,11 +256,11 @@ public final class CompilationEngine implements Closeable {
         xml.append(writeVarDec(new StringBuilder()));
     }
 
-    
+
     private StringBuilder writeVarDec(StringBuilder varDecXml) {
         return writeVarDec(varDecXml, false);
     }
-    
+
     /**
      * @return hasMore
      */
@@ -273,7 +273,7 @@ public final class CompilationEngine implements Closeable {
 
             advance();
         }
-        
+
         varDecXml.append(wrapIdentifier(tokenizer.identifier()));
 
         advance();
@@ -427,6 +427,7 @@ public final class CompilationEngine implements Closeable {
         advance();
         localXml.append(wrapSymbol(tokenizer.symbol()));
 
+        // {
         advance();
         localXml.append(wrapSymbol(tokenizer.symbol()));
         level++;
@@ -449,8 +450,14 @@ public final class CompilationEngine implements Closeable {
 
     private StringBuilder writeDo(StringBuilder doXml) {
         doXml.append(wrapKeyword(Keyword.DO));
+        
         advance();
-        return writeSubroutineCall(doXml);
+        writeSubroutineCall(doXml);
+        
+        advance();
+        return doXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
     }
 
     public void compileReturn() {
@@ -496,6 +503,11 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeTermSymbol(StringBuilder termXml) {
+        if (tokenizer.symbol() != '(') {
+            nextChecked = true;
+            return termXml;
+        }
+        
         termXml.append(wrapSymbol(tokenizer.symbol()));
         final boolean isOp = isUnaryOp(tokenizer.symbol());
         if (!isOp) {
@@ -532,12 +544,14 @@ public final class CompilationEngine implements Closeable {
     private StringBuilder writeTermIdentifier(StringBuilder identefierXml) {
         identefierXml.append(wrapIdentifier(tokenizer.identifier()));
 
+        //just identifier
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL) {
             nextChecked = true;
             return identefierXml;
         }
 
+        //array, expression
         final boolean isArray = tokenizer.symbol() == '[';
         if (tokenizer.symbol() == '(' || isArray) {
             identefierXml.append(wrapSymbol(tokenizer.symbol()));
@@ -547,37 +561,37 @@ public final class CompilationEngine implements Closeable {
 
             advance();
             identefierXml.append(wrapSymbol(tokenizer.symbol()));
+
+            if (isArray) {
+                return identefierXml;
+            }
+
+            // .
+            advance();
+            identefierXml.append(
+                    wrapSymbol(
+                            tokenizer.symbol()
+                    )
+            );
+        } else if (tokenizer.symbol() == '.') {
+            // subroutineCall
+            identefierXml.append(
+                    wrapSymbol(
+                            tokenizer.symbol()
+                    )
+            );
         } else {
             nextChecked = true;
             return identefierXml;
         }
 
-        if (isArray) {
-            return identefierXml;
-        }
-
-        // subroutineCall
-        if (!tokenizer.hasMoreTokens()) {
-            return identefierXml;
-        }
-
         advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '.') {
-            nextChecked = true;
-            return identefierXml;
-        }
-
-        identefierXml.append(wrapSymbol(tokenizer.symbol()));
-
-        advance();
-
         return writeSubroutineCallAfterDot(identefierXml);
     }
 
     private StringBuilder writeSubroutineCall(StringBuilder subroutineXml) {
         subroutineXml.append(wrapIdentifier(tokenizer.identifier()));
-
-        boolean idintifier = false;
+        
         advance();
         if (tokenizer.symbol() == '(') {
             advance();
@@ -586,16 +600,14 @@ public final class CompilationEngine implements Closeable {
             advance();
             subroutineXml.append(wrapSymbol(tokenizer.symbol()));
             wrapSymbol(tokenizer.symbol());
-        } else {
-            idintifier = true;
-        }
-
-        if (!idintifier) {
+            
             advance();
         }
+        
         //dot
         subroutineXml.append(wrapSymbol(tokenizer.symbol()));
 
+        advance();
         return writeSubroutineCallAfterDot(subroutineXml);
     }
 
@@ -616,14 +628,14 @@ public final class CompilationEngine implements Closeable {
     }
 
     private StringBuilder writeExpression(StringBuilder expressionXml) {
-        final StringBuilder expression = writeTerm(expressionXml);
+        writeTerm(expressionXml);
         if (!tokenizer.hasMoreTokens()) {
-            return expression;
+            return expressionXml;
         }
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
-            expression.append(wrapSymbol(tokenizer.symbol()));
+            expressionXml.append(wrapSymbol(tokenizer.symbol()));
             advance();
             return writeTerm(expressionXml);
         } else {
@@ -683,7 +695,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private String wrapStringConst(String stringConst) {
-        return "%s<stringConst> %d </stringConst>\n".formatted(TAB.repeat(level), stringConst);
+        return "%s<stringConst> %s </stringConst>\n".formatted(TAB.repeat(level), stringConst);
     }
 
     public void flush() throws IOException {

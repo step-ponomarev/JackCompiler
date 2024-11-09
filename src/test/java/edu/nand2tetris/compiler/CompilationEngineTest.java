@@ -72,6 +72,32 @@ public final class CompilationEngineTest {
     }
     
     @Test
+    public void testWhileCompilation() {
+        final String line = """
+                while (i < length) {
+                    let a[i] = Keyboard.readInt("ENTER THE NEXT NUMBER: ");
+                    let i = i + 1;
+                }
+                """;
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()));
+             final CompilationEngine compilationEngine = new CompilationEngine(jackTokenizer, baos);
+        ) {
+            jackTokenizer.advance();
+            compilationEngine.compileWhile();
+            compilationEngine.flush();
+            
+            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+            String Str = reader.lines().collect(Collectors.joining(""));
+            System.out.println(Str);
+            reader.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    @Test
     public void testMainCompilation() {
         final String line = """
                 class Main {
