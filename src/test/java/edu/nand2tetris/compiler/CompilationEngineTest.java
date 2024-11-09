@@ -41,5 +41,30 @@ public final class CompilationEngineTest {
             throw new RuntimeException(e);
         }
     }
+    
+    @Test
+    public void testCompileIf() {
+        final String line = """
+                if (x < 0) {
+                    x = 0;
+                }
+                """;
+
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()));
+             final CompilationEngine compilationEngine = new CompilationEngine(jackTokenizer, baos);
+        ) {
+            jackTokenizer.advance();
+            compilationEngine.compileIf();
+            compilationEngine.flush();
+            
+            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+            System.out.println(reader.lines().collect(Collectors.joining()));
+            reader.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 } 
 

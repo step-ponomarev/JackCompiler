@@ -13,10 +13,10 @@ import edu.nadn2tetris.tokenizer.JackTokenizer;
 // странцица 310 10.1.3 Синтаксический раздел
 // Читаем первый символ от Tokenizer(a), решаем что за конструкция перед нами - рендерим конструкцию.
 public final class CompilationEngine implements Closeable {
+    private static final String TAB = "\n";
     private final JackTokenizer tokenizer;
     private final BufferedWriter bufferedWriter;
     private final StringBuilder xml = new StringBuilder();
-    private static final String TAB = "\n";
 
     // не нужно дегать advance, проверяем текущий снаружи
     private boolean nextChecked = false;
@@ -83,7 +83,45 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileStatements() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeStatements(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeStatements(StringBuilder statementsXml) {
+        if (!isStatement(tokenizer.keyword())) {
+            return statementsXml;
+        }
+
+        writeStatement(statementsXml);
+
+        advance();
+        if (tokenizer.tokenType() != TokenType.KEYWORD || !isStatement(tokenizer.keyword())) {
+            nextChecked = true;
+            return statementsXml;
+        }
+
+
+        return writeStatements(statementsXml);
+    }
+
+    private StringBuilder writeStatement(StringBuilder statementXml) {
+        return switch (tokenizer.keyword()) {
+            case LET -> writeLet(statementXml);
+            case IF -> writeIf(statementXml);
+            case WHILE -> writeWhile(statementXml);
+            case DO -> writeDo(statementXml);
+            case RETURN -> writeReturn(statementXml);
+            default -> throw new IllegalStateException("Unsupported type " + tokenizer.keyword());
+        };
+    }
+
+    private boolean isStatement(Keyword keyword) {
+        return keyword == Keyword.LET
+                || keyword == Keyword.IF
+                || keyword == Keyword.WHILE
+                || keyword == Keyword.DO
+                || keyword == Keyword.RETURN;
     }
 
     public void compileLet() {
@@ -125,61 +163,108 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileIf() {
-        //{
-        level++;
-
-        level--;
-        //}
-    }
-
-    public void compileWhile() {
-        final StringBuilder doXml = new StringBuilder(wrapKeyword(Keyword.WHILE));
-
-        advance();
-        doXml.append(wrapSymbol(tokenizer.symbol()));
-
-        advance();
-        writeExpression(doXml);
-
-        advance();
-        doXml.append(wrapSymbol(tokenizer.symbol()));
-
-        advance();
-        doXml.append(wrapSymbol(tokenizer.symbol()));
-        level++;
-        //TODO: тут остановился
-        //statements
-
-        level--;
-        advance();
-        doXml.append(wrapSymbol(tokenizer.symbol()));
-    }
-
-    public void compileDo() {
-        final StringBuilder doXml = new StringBuilder(wrapKeyword(Keyword.DO));
-
-        advance();
         xml.append(
-                writeSubroutineCall(doXml)
+                writeIf(new StringBuilder())
         );
     }
 
+    private StringBuilder writeIf(StringBuilder ifXml) {
+        ifXml.append(wrapKeyword(Keyword.IF));
+
+        advance();
+        writeConditionalStatements(ifXml);
+        if (!tokenizer.hasMoreTokens()) {
+            return ifXml;
+        }
+
+        advance();
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
+            nextChecked = true;
+            return ifXml;
+        }
+
+        ifXml.append(
+                wrapKeyword(tokenizer.keyword())
+        );
+
+        advance();
+        ifXml.append(wrapSymbol(tokenizer.symbol()));
+        level++;
+
+        advance();
+        writeStatements(ifXml);
+
+        level--;
+        advance();
+
+        return ifXml.append(wrapSymbol(tokenizer.symbol()));
+    }
+
+    public void compileWhile() {
+        xml.append(
+                writeWhile(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeWhile(StringBuilder whileXml) {
+        whileXml.append(wrapKeyword(Keyword.WHILE));
+        advance();
+
+        return writeConditionalStatements(whileXml);
+    }
+
+    private StringBuilder writeConditionalStatements(StringBuilder localXml) {
+        localXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        writeExpression(localXml);
+
+        advance();
+        localXml.append(wrapSymbol(tokenizer.symbol()));
+
+        advance();
+        localXml.append(wrapSymbol(tokenizer.symbol()));
+        level++;
+
+        advance();
+        writeStatements(localXml);
+
+        level--;
+        advance();
+
+        return localXml.append(wrapSymbol(tokenizer.symbol()));
+    }
+
+    public void compileDo() {
+        advance();
+        xml.append(
+                writeDo(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeDo(StringBuilder doXml) {
+        doXml.append(wrapKeyword(Keyword.DO));
+        advance();
+        return writeSubroutineCall(doXml);
+    }
+
     public void compileReturn() {
-        final StringBuilder returnXml = new StringBuilder(wrapKeyword(Keyword.RETURN));
+        xml.append(
+                writeReturn(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeReturn(StringBuilder returnXml) {
+        returnXml.append(wrapKeyword(Keyword.RETURN));
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            xml.append(
-                    returnXml.append(wrapSymbol(tokenizer.symbol()))
-            );
-            return;
+            return returnXml.append(wrapSymbol(tokenizer.symbol()));
         }
 
         writeExpression(returnXml);
         advance();
-        returnXml.append(wrapSymbol(tokenizer.symbol()));
-
-        xml.append(returnXml);
+        return returnXml.append(wrapSymbol(tokenizer.symbol()));
     }
 
     public void compileExpression() {
@@ -257,6 +342,9 @@ public final class CompilationEngine implements Closeable {
 
             advance();
             identefierXml.append(wrapSymbol(tokenizer.symbol()));
+        } else {
+            nextChecked = true;
+            return identefierXml;
         }
 
         if (isArray) {
