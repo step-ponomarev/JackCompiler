@@ -28,7 +28,61 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClass() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeClass(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeClass(StringBuilder classXml) {
+        classXml.append(wrapKeyword(Keyword.CLASS));
+
+        advance();
+        classXml.append(
+                wrapIdentifier(tokenizer.identifier())
+        );
+
+        // {
+        advance();
+        classXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+        level++;
+
+
+        advance();
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
+            level--;
+            xml.append(wrapSymbol(tokenizer.symbol()));
+            return classXml;
+        }
+
+        while (tokenizer.tokenType() == TokenType.KEYWORD && isClassVarDec(tokenizer.keyword())) {
+            writeClassVarDec(classXml);
+            advance();
+        }
+
+        while (tokenizer.tokenType() == TokenType.KEYWORD && isSubroutineDec(tokenizer.keyword())) {
+            writeSubroutineDec(classXml);
+            advance();
+        }
+
+        level--;
+        // }
+        classXml.append(
+                tokenizer.symbol()
+        );
+
+        return classXml;
+    }
+
+    private boolean isSubroutineDec(Keyword keyword) {
+        return keyword == Keyword.CONSTRUCTOR
+                || keyword == Keyword.FUNCTION
+                || keyword == Keyword.METHOD;
+    }
+
+    private boolean isClassVarDec(Keyword keyword) {
+        return keyword == Keyword.STATIC || keyword == Keyword.FIELD;
     }
 
     public void compileClassVarDec() {
@@ -50,32 +104,102 @@ public final class CompilationEngine implements Closeable {
                         ? wrapIdentifier(tokenizer.identifier())
                         : wrapKeyword(tokenizer.keyword())
         );
-        
+
         advance();
         varDexXml.append(
                 tokenizer.identifier()
         );
-        
+
         if (!tokenizer.hasMoreTokens()) {
             return varDexXml;
         }
-        
+
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ',') {
             nextChecked = true;
             return varDexXml;
         }
-        
+
         //,
         varDexXml.append(
                 tokenizer.symbol()
         );
-        
+
+        advance();
         return writeVarDec(varDexXml);
     }
 
     public void compileSubroutine() {
-        throw new UnsupportedOperationException();
+        xml.append(
+                writeSubroutineDec(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeSubroutineDec(StringBuilder subroutineDecXml) {
+        subroutineDecXml.append(
+                wrapKeyword(tokenizer.keyword())
+        );
+
+        advance();
+        if (isType(tokenizer)) {
+            writeType(subroutineDecXml);
+        } else {
+            subroutineDecXml.append(wrapKeyword(Keyword.VOID));
+        }
+
+        advance();
+        subroutineDecXml.append(
+                wrapIdentifier(tokenizer.identifier())
+        );
+
+        //(
+        advance();
+        subroutineDecXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+
+        advance();
+        writeParameterList(subroutineDecXml);
+
+        //)
+        advance();
+        subroutineDecXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+
+        advance();
+        return writeSubroutineBody(subroutineDecXml);
+    }
+
+    public void compileSubroutineBody() {
+        xml.append(
+                writeSubroutineBody(new StringBuilder())
+        );
+    }
+
+    private StringBuilder writeSubroutineBody(StringBuilder subroutineXml) {
+        //{
+        subroutineXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+        level++;
+
+        advance();
+        while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
+            writeVarDec(subroutineXml);
+            advance();
+        }
+
+        writeStatements(subroutineXml);
+
+        //}
+        level--;
+        advance();
+        subroutineXml.append(
+                wrapSymbol(tokenizer.symbol())
+        );
+
+        return subroutineXml;
     }
 
     public void compileParameterList() {
@@ -83,26 +207,26 @@ public final class CompilationEngine implements Closeable {
                 writeParameterList(new StringBuilder())
         );
     }
-    
+
     private StringBuilder writeParameterList(StringBuilder parameterListXml) {
         if (!isType(tokenizer)) {
             nextChecked = true;
             return parameterListXml;
         }
-        
+
         writeType(parameterListXml);
-        
+
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
             nextChecked = true;
             return parameterListXml;
         }
-        
+
         //,
         parameterListXml.append(
                 wrapSymbol(tokenizer.symbol())
         );
-        
+
         advance();
         return writeParameterList(parameterListXml);
     }
@@ -114,40 +238,39 @@ public final class CompilationEngine implements Closeable {
                         : wrapIdentifier(tokenizer.identifier())
         );
     }
-    
+
     private static boolean isType(JackTokenizer tokenizer) {
         if (tokenizer.tokenType() == TokenType.KEYWORD) {
-            return tokenizer.keyword() == Keyword.INT 
-                    || tokenizer.keyword() == Keyword.CHAR 
+            return tokenizer.keyword() == Keyword.INT
+                    || tokenizer.keyword() == Keyword.CHAR
                     || tokenizer.keyword() == Keyword.BOOLEAN;
         }
-        
+
         return tokenizer.tokenType() == TokenType.IDENTIFIER;
     }
 
-    public void compileSubroutineBody() {
-        throw new UnsupportedOperationException();
-    }
-
     public void compileVarDec() {
-        final StringBuilder varXml = new StringBuilder(wrapKeyword(Keyword.VAR));
-        advance();
-        TokenType tokenType = tokenizer.tokenType();
-
-        if (tokenType == TokenType.IDENTIFIER) {
-            varXml.append(wrapIdentifier(tokenizer.identifier()));
-        } else {
-            varXml.append(wrapKeyword(tokenizer.keyword()));
-        }
-
-        xml.append(writeVarDec(varXml));
+        xml.append(writeVarDec(new StringBuilder()));
     }
 
+    
+    private StringBuilder writeVarDec(StringBuilder varDecXml) {
+        return writeVarDec(varDecXml, false);
+    }
+    
     /**
      * @return hasMore
      */
-    private StringBuilder writeVarDec(StringBuilder varDecXml) {
-        advance();
+    private StringBuilder writeVarDec(StringBuilder varDecXml, boolean list) {
+        if (!list) {
+            varDecXml.append(wrapKeyword(tokenizer.keyword()));
+
+            advance();
+            writeType(varDecXml);
+
+            advance();
+        }
+        
         varDecXml.append(wrapIdentifier(tokenizer.identifier()));
 
         advance();
@@ -157,7 +280,8 @@ public final class CompilationEngine implements Closeable {
 
         varDecXml.append(wrapSymbol(tokenizer.symbol()));
 
-        return writeVarDec(varDecXml);
+        advance();
+        return writeVarDec(varDecXml, true);
     }
 
     public void compileStatements() {

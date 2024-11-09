@@ -70,5 +70,57 @@ public final class CompilationEngineTest {
             throw new RuntimeException(e);
         }
     }
+    
+    @Test
+    public void testMainCompilation() {
+        final String line = """
+                class Main {
+                    function void main() {
+                        var Array a;
+                        var int length;
+                        var int i, sum;
+                	
+                	let length = Keyboard.readInt("HOW MANY NUMBERS? ");
+                	let a = Array.new(length);
+                	let i = 0;
+                	
+                	while (i < length) {
+                	    let a[i] = Keyboard.readInt("ENTER THE NEXT NUMBER: ");
+                	    let i = i + 1;
+                	}
+                	
+                	let i = 0;
+                	let sum = 0;
+                	
+                	while (i < length) {
+                	    let sum = sum + a[i];
+                	    let i = i + 1;
+                	}
+                	
+                	do Output.printString("THE AVERAGE IS: ");
+                	do Output.printInt(sum / length);
+                	do Output.println();
+                	
+                	return;
+                    }
+                }
+                """;
+
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()));
+             final CompilationEngine compilationEngine = new CompilationEngine(jackTokenizer, baos);
+        ) {
+            jackTokenizer.advance();
+            compilationEngine.compileClass();
+            compilationEngine.flush();
+            
+            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+            String Str = reader.lines().collect(Collectors.joining(""));
+            System.out.println(Str);
+            reader.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 } 
 
