@@ -29,16 +29,15 @@ public final class CompilationEngineTest {
         ) {
             jackTokenizer.advance();
             compilationEngine.compileVarDec();
-            compilationEngine.flush();
-            
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-            final String collect = reader.lines().collect(Collectors.joining());
-            reader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+        final String collect = reader.lines().collect(Collectors.joining());
+        System.out.println(collect);
     }
-    
+
     @Test
     public void testCompileIf() {
         final String line = """
@@ -60,17 +59,15 @@ public final class CompilationEngineTest {
         ) {
             jackTokenizer.advance();
             compilationEngine.compileIf();
-            compilationEngine.flush();
-            
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-            String Str = reader.lines().collect(Collectors.joining(""));
-            System.out.println(Str);
-            reader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+        String Str = reader.lines().collect(Collectors.joining(""));
+        System.out.println(Str);
     }
-    
+
     @Test
     public void testWhileCompilation() {
         final String line = """
@@ -86,17 +83,17 @@ public final class CompilationEngineTest {
         ) {
             jackTokenizer.advance();
             compilationEngine.compileWhile();
-            compilationEngine.flush();
-            
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-            String Str = reader.lines().collect(Collectors.joining(""));
-            System.out.println(Str);
-            reader.close();
+
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+        String Str = reader.lines().collect(Collectors.joining(""));
+        System.out.println(Str);
     }
-    
+
     @Test
     public void testMainCompilation() {
         final String line = """
@@ -138,15 +135,13 @@ public final class CompilationEngineTest {
         ) {
             jackTokenizer.advance();
             compilationEngine.compileClass();
-            compilationEngine.flush();
-            
-            final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-            String Str = reader.lines().collect(Collectors.joining(""));
-            System.out.println(Str);
-            reader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
+        String Str = reader.lines().collect(Collectors.joining(""));
+        System.out.println(Str);
     }
 } 
 
