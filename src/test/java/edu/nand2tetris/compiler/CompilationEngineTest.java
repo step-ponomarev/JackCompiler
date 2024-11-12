@@ -3,10 +3,17 @@ package edu.nand2tetris.compiler;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.compiler.CompilationEngine;
@@ -95,8 +102,8 @@ public final class CompilationEngineTest {
     }
 
     @Test
-    public void testMainCompilation() {
-        final String line = """
+    public void testMainCompilation() throws IOException {
+        final String mainCode = """
                 class Main {
                     function void main() {
                         var Array a;
@@ -130,7 +137,7 @@ public final class CompilationEngineTest {
                 """;
 
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()));
+        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(mainCode.getBytes()));
              final CompilationEngine compilationEngine = new CompilationEngine(jackTokenizer, baos);
         ) {
             jackTokenizer.advance();
@@ -139,9 +146,17 @@ public final class CompilationEngineTest {
             throw new RuntimeException(e);
         }
 
+        final Path path = Paths.get("src", "test", "resources", "Main.xml");
+        final BufferedReader reader1 = new BufferedReader(new FileReader(path.toFile()));
         final BufferedReader reader = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(baos.toByteArray())));
-        String Str = reader.lines().collect(Collectors.joining(""));
-        System.out.println(Str);
+        
+        String first = null;
+        String second = null;
+        int i = 1;
+        while ((first = reader.readLine()) != null && (second = reader1.readLine()) != null) {
+            Assertions.assertEquals(first, second);
+            System.out.println(i++);
+        }
     }
 } 
 

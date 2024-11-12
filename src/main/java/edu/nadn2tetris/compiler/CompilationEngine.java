@@ -10,16 +10,8 @@ import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 
-// странцица 310 10.1.3 Синтаксический раздел
-// Читаем первый символ от Tokenizer(a), решаем что за конструкция перед нами - рендерим конструкцию.
-//TODO: 1) Инкапсулировать xml запсь(чтобы не дублировать wrap) +
-//      2) Писать сразу в буффер или в один XML и переиспользовать публичные методы. +
-//      3) Рекурсия(?) - пох
-//      4) <class> <subroutineDec> <parameterList> <subroutineBody> <varDec> <statements>  <letStatement> <expression> <term> <expressionList>...
-//      5) подумать над читабельностью
-
 public final class CompilationEngine implements Closeable {
-    private static final String TAB_SYMBOL = "\t";
+    private static final String TAB_SYMBOL = "\s\s";
     private final JackTokenizer tokenizer;
     private final BufferedWriter bufferedWriter;
 
@@ -32,6 +24,8 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClass() {
+        openBlock(StatementType.CLASS);
+
         writeToken();
         advance();
         writeToken();
@@ -39,11 +33,9 @@ public final class CompilationEngine implements Closeable {
         // {
         advance();
         writeToken();
-        nestingLevel++;
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
-            nestingLevel--;
             writeToken();
             return;
         }
@@ -58,9 +50,9 @@ public final class CompilationEngine implements Closeable {
             advance();
         }
 
-        nestingLevel--;
         // }
         writeToken();
+        closeBlock(StatementType.CLASS);
     }
 
     private boolean isSubroutineDec(Keyword keyword) {
@@ -99,6 +91,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileSubroutine() {
+        openBlock(StatementType.SUBROUTINE_DEC);
         writeToken();
 
         advance();
@@ -120,12 +113,13 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         compileSubroutineBody();
+        closeBlock(StatementType.SUBROUTINE_DEC);
     }
 
     public void compileSubroutineBody() {
+        openBlock(StatementType.SUBROUTINE_BODY);
         //{
         writeToken();
-        nestingLevel++;
 
         advance();
         while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
@@ -136,12 +130,18 @@ public final class CompilationEngine implements Closeable {
         compileStatements();
 
         //}
-        nestingLevel--;
         advance();
         writeToken();
+        closeBlock(StatementType.SUBROUTINE_BODY);
     }
 
     public void compileParameterList() {
+        openBlock(StatementType.PARAMETER_LIST);
+        compileParameterListNested();
+        closeBlock(StatementType.PARAMETER_LIST);
+    }
+
+    private void compileParameterListNested() {
         if (!isType(tokenizer)) {
             return;
         }
@@ -157,7 +157,7 @@ public final class CompilationEngine implements Closeable {
         writeToken();
 
         advance();
-        compileParameterList();
+        compileParameterListNested();
     }
 
     private static boolean isType(JackTokenizer tokenizer) {
@@ -171,7 +171,9 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileVarDec() {
+        openBlock(StatementType.VAR_DEC);
         compileVarDec(false);
+        closeBlock(StatementType.VAR_DEC);
     }
 
     private void compileVarDec(boolean list) {
@@ -199,6 +201,12 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileStatements() {
+        openBlock(StatementType.STATEMENTS);
+        compileStatementsNested();
+        closeBlock(StatementType.STATEMENTS);
+    }
+
+    private void compileStatementsNested() {
         if (!isStatement(tokenizer.keyword())) {
             return;
         }
@@ -210,7 +218,7 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
-        compileStatements();
+        compileStatementsNested();
     }
 
     private void compileStatement() {
@@ -225,6 +233,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileLet() {
+        openBlock(StatementType.LET_STATEMENT);
         writeToken();
 
         advance();
@@ -252,9 +261,11 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         writeToken();
+        closeBlock(StatementType.LET_STATEMENT);
     }
 
     public void compileIf() {
+        openBlock(StatementType.IF_STATEMENT);
         writeToken();
 
         advance();
@@ -272,22 +283,22 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         writeToken();
-        nestingLevel++;
 
         advance();
         compileStatements();
 
-        nestingLevel--;
         advance();
-
         writeToken();
+        closeBlock(StatementType.IF_STATEMENT);
     }
 
     public void compileWhile() {
+        openBlock(StatementType.WHILE_STATEMENT);
         writeToken();
         advance();
 
         compileConditionalStatements();
+        closeBlock(StatementType.WHILE_STATEMENT);
     }
 
     private void compileConditionalStatements() {
@@ -302,18 +313,17 @@ public final class CompilationEngine implements Closeable {
         // {
         advance();
         writeToken();
-        nestingLevel++;
 
         advance();
         compileStatements();
 
-        nestingLevel--;
         advance();
 
         writeToken();
     }
 
     public void compileDo() {
+        openBlock(StatementType.DO_STATEMENT);
         writeToken();
 
         advance();
@@ -321,25 +331,31 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         writeToken();
+        closeBlock(StatementType.DO_STATEMENT);
     }
 
     public void compileReturn() {
+        openBlock(StatementType.RETURN_STATEMENT);
         writeToken();
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
             writeToken();
+            closeBlock(StatementType.RETURN_STATEMENT);
             return;
         }
 
         compileExpression();
         advance();
         writeToken();
+        closeBlock(StatementType.RETURN_STATEMENT);
     }
 
     public void compileExpression() {
+        openBlock(StatementType.EXPRESSION);
         compileTerm();
         if (!tokenizer.hasMoreTokens()) {
+            closeBlock(StatementType.EXPRESSION);
             return;
         }
 
@@ -349,15 +365,18 @@ public final class CompilationEngine implements Closeable {
             advance();
             compileTerm();
         }
+        closeBlock(StatementType.EXPRESSION);
     }
 
     public void compileTerm() {
+        openBlock(StatementType.TERM);
         final TokenType tokenType = tokenizer.tokenType();
         switch (tokenType) {
             case IDENTIFIER -> compileTermIdentifier();
             case SYMBOL -> compileTermSymbol();
             default -> writeToken();
         }
+        closeBlock(StatementType.TERM);
     }
 
     private void compileTermSymbol() {
@@ -413,7 +432,7 @@ public final class CompilationEngine implements Closeable {
             writeToken();
 
             advance();
-            compileExpressionList();
+            compileExpression();
 
             advance();
             writeToken();
@@ -471,16 +490,27 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileExpressionList() {
-        compileExpression();
+        openBlock(StatementType.EXPRESSION_LIST);
+        compileExpressionListNested();
+        closeBlock(StatementType.EXPRESSION_LIST);
+    }
+
+    private void compileExpressionListNested() {
         if (!tokenizer.hasMoreTokens()) {
             return;
         }
+
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ')') {
+            return;
+        }
+
+        compileExpression();
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
             writeToken();
             advance();
-            compileExpressionList();
+            compileExpressionListNested();
         }
     }
 
@@ -494,10 +524,6 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void writeToken() {
-        if (!tokenIsBuffered) {
-            throw new IllegalStateException("Token is not buffered!");
-        }
-        
         try {
             switch (tokenizer.tokenType()) {
                 case KEYWORD -> bufferedWriter.write(wrapKeyword(tokenizer.keyword()));
@@ -522,6 +548,22 @@ public final class CompilationEngine implements Closeable {
                 || keyword == Keyword.RETURN;
     }
 
+    private void openBlock(StatementType statementType) {
+        try {
+            bufferedWriter.write("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), statementType.tagName));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void closeBlock(StatementType statementType) {
+        try {
+            bufferedWriter.write("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), statementType.tagName));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private String wrapKeyword(Keyword keyword) {
         return "%s<keyword> %s </keyword>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), keyword.name().toLowerCase());
     }
@@ -535,17 +577,42 @@ public final class CompilationEngine implements Closeable {
     }
 
     private String wrapIntConst(short intConst) {
-        return "%s<intConst> %d </intConst>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), intConst);
+        return "%s<integerConstant> %d </integerConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), intConst);
     }
 
     private String wrapStringConst(String stringConst) {
-        return "%s<stringConst> %s </stringConst>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
+        return "%s<stringConstant> %s </stringConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
     }
 
     @Override
     public void close() throws IOException {
         this.tokenizer.close();
         this.bufferedWriter.close();
+    }
+
+    enum StatementType {
+        CLASS("class"),
+        SUBROUTINE_DEC("subroutineDec"),
+        SUBROUTINE_BODY("subroutineBody"),
+        PARAMETER_LIST("parameterList"),
+        VAR_DEC("varDec"),
+        STATEMENTS("statements"),
+        LET_STATEMENT("letStatement"),
+        IF_STATEMENT("ifStatement"),
+        WHILE_STATEMENT("whileStatement"),
+        DO_STATEMENT("doStatement"),
+        RETURN_STATEMENT("returnStatement"),
+        EXPRESSION("expression"),
+        EXPRESSION_LIST("expressionList"),
+        STRING_CONSTANT("stringConstant"),
+        INTEGER_CONSTANT("integerConstant"),
+        TERM("term");
+
+        public String tagName;
+
+        StatementType(String tagName) {
+            this.tagName = tagName;
+        }
     }
 }
 
