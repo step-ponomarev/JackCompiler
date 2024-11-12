@@ -13,10 +13,11 @@ import edu.nadn2tetris.tokenizer.JackTokenizer;
 // странцица 310 10.1.3 Синтаксический раздел
 // Читаем первый символ от Tokenizer(a), решаем что за конструкция перед нами - рендерим конструкцию.
 //TODO: 1) Инкапсулировать xml запсь(чтобы не дублировать wrap) +
-//      2) Писать сразу в буффер или в один XML и переиспользовать публичные методы.
-//      3) Рекурсия(?)
+//      2) Писать сразу в буффер или в один XML и переиспользовать публичные методы. +
+//      3) Рекурсия(?) - пох
 //      4) <class> <subroutineDec> <parameterList> <subroutineBody> <varDec> <statements>  <letStatement> <expression> <term> <expressionList>...
-//      5)
+//      5) подумать над читабельностью
+
 public final class CompilationEngine implements Closeable {
     private static final String TAB_SYMBOL = "\t";
     private final JackTokenizer tokenizer;
