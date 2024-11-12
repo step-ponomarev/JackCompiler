@@ -23,7 +23,7 @@ public final class CompilationEngine implements Closeable {
     private final JackTokenizer tokenizer;
     private final BufferedWriter bufferedWriter;
 
-    private boolean nextIsBuffered = false;
+    private boolean tokenIsBuffered = false;
     private int nestingLevel = 0;
 
     public CompilationEngine(JackTokenizer tokenizer, OutputStream out) {
@@ -485,16 +485,19 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void advance() {
-        if (nextIsBuffered) {
+        if (tokenIsBuffered) {
             return;
         }
 
         tokenizer.advance();
-        nextIsBuffered = true;
+        tokenIsBuffered = true;
     }
 
     private void writeToken() {
-        //TODO: можно кидать ошибку если пытаемся писать один и тот же токен 2 раза
+        if (!tokenIsBuffered) {
+            throw new IllegalStateException("Token is not buffered!");
+        }
+        
         try {
             switch (tokenizer.tokenType()) {
                 case KEYWORD -> bufferedWriter.write(wrapKeyword(tokenizer.keyword()));
@@ -508,7 +511,7 @@ public final class CompilationEngine implements Closeable {
             throw new RuntimeException(e);
         }
 
-        nextIsBuffered = false;
+        tokenIsBuffered = false;
     }
 
     private static boolean isStatement(Keyword keyword) {
