@@ -32,19 +32,19 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClass() {
-        write();
+        writeToken();
         advance();
-        write();
+        writeToken();
 
         // {
         advance();
-        write();
+        writeToken();
         nestingLevel++;
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
             nestingLevel--;
-            write();
+            writeToken();
             return;
         }
 
@@ -60,7 +60,7 @@ public final class CompilationEngine implements Closeable {
 
         nestingLevel--;
         // }
-        write();
+        writeToken();
     }
 
     private boolean isSubroutineDec(Keyword keyword) {
@@ -74,13 +74,13 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClassVarDec() {
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         if (!tokenizer.hasMoreTokens()) {
             return;
@@ -92,31 +92,31 @@ public final class CompilationEngine implements Closeable {
         }
 
         //,
-        write();
+        writeToken();
 
         advance();
         compileVarDec();
     }
 
     public void compileSubroutine() {
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         //(
         advance();
-        write();
+        writeToken();
 
         advance();
         compileParameterList();
 
         //)
         advance();
-        write();
+        writeToken();
 
         advance();
         compileSubroutineBody();
@@ -124,7 +124,7 @@ public final class CompilationEngine implements Closeable {
 
     public void compileSubroutineBody() {
         //{
-        write();
+        writeToken();
         nestingLevel++;
 
         advance();
@@ -138,7 +138,7 @@ public final class CompilationEngine implements Closeable {
         //}
         nestingLevel--;
         advance();
-        write();
+        writeToken();
     }
 
     public void compileParameterList() {
@@ -146,7 +146,7 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
-        write();
+        writeToken();
 
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
@@ -154,7 +154,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         //,
-        write();
+        writeToken();
 
         advance();
         compileParameterList();
@@ -176,23 +176,23 @@ public final class CompilationEngine implements Closeable {
 
     private void compileVarDec(boolean list) {
         if (!list) {
-            write();
+            writeToken();
 
             advance();
-            write();
+            writeToken();
 
             advance();
         }
 
-        write();
+        writeToken();
 
         advance();
         if (tokenizer.symbol() == ';') {
-            write();
+            writeToken();
             return;
         }
 
-        write();
+        writeToken();
 
         advance();
         compileVarDec(true);
@@ -225,37 +225,37 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileLet() {
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         advance();
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
-            write();
+            writeToken();
             advance();
             compileExpression();
 
             advance();
-            write();
+            writeToken();
 
             // =
             advance();
         }
 
         // =
-        write();
+        writeToken();
 
         advance();
         compileExpression();
 
         advance();
-        write();
+        writeToken();
     }
 
     public void compileIf() {
-        write();
+        writeToken();
 
         advance();
         compileConditionalStatements();
@@ -268,10 +268,10 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
         nestingLevel++;
 
         advance();
@@ -280,28 +280,28 @@ public final class CompilationEngine implements Closeable {
         nestingLevel--;
         advance();
 
-        write();
+        writeToken();
     }
 
     public void compileWhile() {
-        write();
+        writeToken();
         advance();
 
         compileConditionalStatements();
     }
 
     private void compileConditionalStatements() {
-        write();
+        writeToken();
 
         advance();
         compileExpression();
 
         advance();
-        write();
+        writeToken();
 
         // {
         advance();
-        write();
+        writeToken();
         nestingLevel++;
 
         advance();
@@ -310,31 +310,31 @@ public final class CompilationEngine implements Closeable {
         nestingLevel--;
         advance();
 
-        write();
+        writeToken();
     }
 
     public void compileDo() {
-        write();
+        writeToken();
 
         advance();
         compileSubroutineCall();
 
         advance();
-        write();
+        writeToken();
     }
 
     public void compileReturn() {
-        write();
+        writeToken();
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            write();
+            writeToken();
             return;
         }
 
         compileExpression();
         advance();
-        write();
+        writeToken();
     }
 
     public void compileExpression() {
@@ -345,7 +345,7 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
-            write();
+            writeToken();
             advance();
             compileTerm();
         }
@@ -356,7 +356,7 @@ public final class CompilationEngine implements Closeable {
         switch (tokenType) {
             case IDENTIFIER -> compileTermIdentifier();
             case SYMBOL -> compileTermSymbol();
-            default -> write();
+            default -> writeToken();
         }
     }
 
@@ -365,18 +365,18 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
-        write();
+        writeToken();
         final boolean isOp = isUnaryOp(tokenizer.symbol());
         if (!isOp) {
             advance();
             compileExpression();
 
             advance();
-            write();
+            writeToken();
             return;
         }
 
-        write();
+        writeToken();
         advance();
 
         compileTerm();
@@ -399,7 +399,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileTermIdentifier() {
-        write();
+        writeToken();
 
         //just identifier
         advance();
@@ -410,13 +410,13 @@ public final class CompilationEngine implements Closeable {
         //array, expression
         final boolean isArray = tokenizer.symbol() == '[';
         if (tokenizer.symbol() == '(' || isArray) {
-            write();
+            writeToken();
 
             advance();
             compileExpressionList();
 
             advance();
-            write();
+            writeToken();
 
             if (isArray) {
                 return;
@@ -424,10 +424,10 @@ public final class CompilationEngine implements Closeable {
 
             // .
             advance();
-            write();
+            writeToken();
         } else if (tokenizer.symbol() == '.') {
             // subroutineCall
-            write();
+            writeToken();
         } else {
             return;
         }
@@ -437,7 +437,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileSubroutineCall() {
-        write();
+        writeToken();
 
         advance();
         if (tokenizer.symbol() == '(') {
@@ -445,30 +445,29 @@ public final class CompilationEngine implements Closeable {
             compileExpressionList();
 
             advance();
-            write();
+            writeToken();
 
             advance();
         }
 
         //dot
-        write();
+        writeToken();
 
         advance();
         compileSubroutineCallAfterDot();
     }
 
-    //...'.'
     private void compileSubroutineCallAfterDot() {
-        write();
+        writeToken();
 
         advance();
-        write();
+        writeToken();
 
         advance();
         compileExpressionList();
 
         advance();
-        write();
+        writeToken();
     }
 
     public void compileExpressionList() {
@@ -479,7 +478,7 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
-            write();
+            writeToken();
             advance();
             compileExpressionList();
         }
@@ -494,7 +493,8 @@ public final class CompilationEngine implements Closeable {
         nextIsBuffered = true;
     }
 
-    private void write() {
+    private void writeToken() {
+        //TODO: можно кидать ошибку если пытаемся писать один и тот же токен 2 раза
         try {
             switch (tokenizer.tokenType()) {
                 case KEYWORD -> bufferedWriter.write(wrapKeyword(tokenizer.keyword()));
