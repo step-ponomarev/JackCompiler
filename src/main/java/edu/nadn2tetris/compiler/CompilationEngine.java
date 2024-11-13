@@ -24,6 +24,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClass() {
+        advance();
         openBlock(StatementType.CLASS);
 
         writeToken();
