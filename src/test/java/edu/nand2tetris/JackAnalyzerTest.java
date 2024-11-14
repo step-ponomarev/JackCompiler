@@ -45,18 +45,20 @@ public final class JackAnalyzerTest {
         JackAnalyzer.main(new String[]{srcFile.toString(), OUT_DIR.toString()});
 
         final Map<String, Path> testFilesMap = Files.walk(testFiles)
+                .filter(s -> s.getFileName().toString().endsWith(".xml"))
                 .collect(
                         Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
                 );
 
         final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR)
+                .filter(s -> s.getFileName().toString().endsWith(".xml"))
                 .collect(
                         Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
                 );
 
-        for (Map.Entry<String, Path> testFile : testFilesMap.entrySet()) {
-            Path compiledFile = compiledFilesMap.get(testFile.getKey());
-            compareFiles(testFile.getValue().toFile(), compiledFile.toFile());
+        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
+            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
+            compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
         }
     }
 

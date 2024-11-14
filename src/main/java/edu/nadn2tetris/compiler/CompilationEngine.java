@@ -155,6 +155,9 @@ public final class CompilationEngine implements Closeable {
         writeToken();
 
         advance();
+        writeToken();
+
+        advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
             return;
         }
@@ -277,11 +280,13 @@ public final class CompilationEngine implements Closeable {
         advance();
         compileConditionalStatements();
         if (!tokenizer.hasMoreTokens()) {
+            closeBlock(StatementType.IF_STATEMENT);
             return;
         }
 
         advance();
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
+            closeBlock(StatementType.IF_STATEMENT);
             return;
         }
 
@@ -334,9 +339,6 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         compileSubroutineCall();
-
-        advance();
-        writeToken();
         closeBlock(StatementType.DO_STATEMENT);
     }
 
@@ -451,14 +453,13 @@ public final class CompilationEngine implements Closeable {
             advance();
             writeToken();
         } else if (tokenizer.symbol() == '.') {
-            // subroutineCall
             writeToken();
         } else {
             return;
         }
 
         advance();
-        compileSubroutineCallAfterDot();
+        compileSubroutineCallAfterDot(false);
     }
 
     private void compileSubroutineCall() {
@@ -466,6 +467,8 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         if (tokenizer.symbol() == '(') {
+            writeToken();
+
             advance();
             compileExpressionList();
 
@@ -475,14 +478,17 @@ public final class CompilationEngine implements Closeable {
             advance();
         }
 
-        //dot
+        //dot or ;
         writeToken();
+        if (tokenizer.symbol() == ';') {
+            return;
+        }
 
         advance();
         compileSubroutineCallAfterDot();
     }
 
-    private void compileSubroutineCallAfterDot() {
+    private void compileSubroutineCallAfterDot(boolean writeLineEnd) {
         writeToken();
 
         advance();
@@ -491,8 +497,18 @@ public final class CompilationEngine implements Closeable {
         advance();
         compileExpressionList();
 
+        // )
         advance();
         writeToken();
+
+        if (writeLineEnd) {
+            advance();
+            writeToken();
+        }
+    }
+
+    private void compileSubroutineCallAfterDot() {
+        compileSubroutineCallAfterDot(true);
     }
 
     public void compileExpressionList() {
