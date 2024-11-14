@@ -67,6 +67,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClassVarDec() {
+        openBlock(StatementType.CLASS_VAR_DEC);
         writeToken();
 
         advance();
@@ -76,11 +77,14 @@ public final class CompilationEngine implements Closeable {
         writeToken();
 
         if (!tokenizer.hasMoreTokens()) {
+            closeBlock(StatementType.CLASS_VAR_DEC);
             return;
         }
 
         advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ',') {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
+            writeToken();
+            closeBlock(StatementType.CLASS_VAR_DEC);
             return;
         }
 
@@ -88,7 +92,8 @@ public final class CompilationEngine implements Closeable {
         writeToken();
 
         advance();
-        compileVarDec();
+        compileVarDec(true);
+        closeBlock(StatementType.CLASS_VAR_DEC);
     }
 
     public void compileSubroutine() {
@@ -208,14 +213,14 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileStatementsNested() {
-        if (!isStatement(tokenizer.keyword())) {
+        if (!isStatement()) {
             return;
         }
 
         compileStatement();
 
         advance();
-        if (tokenizer.tokenType() != TokenType.KEYWORD || !isStatement(tokenizer.keyword())) {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || !isStatement()) {
             return;
         }
 
@@ -541,7 +546,12 @@ public final class CompilationEngine implements Closeable {
         tokenIsBuffered = false;
     }
 
-    private static boolean isStatement(Keyword keyword) {
+    private boolean isStatement() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD) {
+            return false;
+        }
+
+        final Keyword keyword = tokenizer.keyword();
         return keyword == Keyword.LET
                 || keyword == Keyword.IF
                 || keyword == Keyword.WHILE
@@ -593,6 +603,7 @@ public final class CompilationEngine implements Closeable {
 
     enum StatementType {
         CLASS("class"),
+        CLASS_VAR_DEC("classVarDec"),
         SUBROUTINE_DEC("subroutineDec"),
         SUBROUTINE_BODY("subroutineBody"),
         PARAMETER_LIST("parameterList"),
