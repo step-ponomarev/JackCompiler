@@ -24,7 +24,7 @@ public final class JackAnalyzerTest {
 
     @AfterEach
     public void cleanUp() throws IOException {
-        FileUtils.removeDir(OUT_DIR);
+//        FileUtils.removeDir(OUT_DIR);
     }
 
     @Test
@@ -41,6 +41,31 @@ public final class JackAnalyzerTest {
     public void testExpressionLessSquare() throws IOException {
         final Path srcFile = RES_DIR.resolve("src/ExpressionLessSquare");
         final Path testFiles = RES_DIR.resolve("test/ExpressionLessSquare");
+
+        JackAnalyzer.main(new String[]{srcFile.toString(), OUT_DIR.toString()});
+
+        final Map<String, Path> testFilesMap = Files.walk(testFiles)
+                .filter(s -> s.getFileName().toString().endsWith(".xml"))
+                .collect(
+                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
+                );
+
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR)
+                .filter(s -> s.getFileName().toString().endsWith(".xml"))
+                .collect(
+                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
+                );
+
+        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
+            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
+            compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
+        }
+    }
+
+    @Test
+    public void testSquare() throws IOException {
+        final Path srcFile = RES_DIR.resolve("src/Square");
+        final Path testFiles = RES_DIR.resolve("test/Square");
 
         JackAnalyzer.main(new String[]{srcFile.toString(), OUT_DIR.toString()});
 
