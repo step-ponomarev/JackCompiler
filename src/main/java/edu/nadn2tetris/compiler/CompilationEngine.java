@@ -467,11 +467,10 @@ public final class CompilationEngine implements Closeable {
 
             advance();
             writeToken();
-
-            advance();
         }
 
         //dot or ;
+        advance();
         writeToken();
         if (tokenizer.symbol() == ';') {
             return;
