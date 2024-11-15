@@ -388,17 +388,34 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileTermSymbol() {
+        if (isUnaryOp(tokenizer.symbol())) {
+            writeToken();
+
+            advance();
+            compileTerm();
+            return;
+        }
+
         if (tokenizer.symbol() != '(') {
             return;
         }
 
         writeToken();
+
+        advance();
         final boolean isOp = isUnaryOp(tokenizer.symbol());
         if (!isOp) {
             advance();
             compileExpression();
 
             advance();
+            writeToken();
+            return;
+        } else {
+            compileExpression();
+        }
+
+        if (isOp) {
             writeToken();
             return;
         }

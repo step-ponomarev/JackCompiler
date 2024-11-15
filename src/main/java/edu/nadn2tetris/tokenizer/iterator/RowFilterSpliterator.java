@@ -1,4 +1,4 @@
-package edu.nadn2tetris.tokenizer.filter;
+package edu.nadn2tetris.tokenizer.iterator;
 
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -32,8 +32,8 @@ final class RowFilterSpliterator extends Spliterators.AbstractSpliterator<String
             if (commentBlockStarted) {
                 if (COMMENTS_END_BLOCK_PATTERN.matcher(r).matches()) {
                     commentBlockStarted = false;
-                    return;
                 }
+                return;
             }
 
             if (COMMENTS_START_BLOCK_PATTERN.matcher(r).matches()) {

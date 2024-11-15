@@ -1,4 +1,4 @@
-package edu.nadn2tetris.tokenizer;
+package edu.nadn2tetris.tokenizer.iterator;
 
 import java.util.Spliterator;
 import java.util.Spliterators;

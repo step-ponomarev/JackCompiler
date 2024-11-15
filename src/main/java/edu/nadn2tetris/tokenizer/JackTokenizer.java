@@ -5,33 +5,23 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.stream.Stream;
 
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
-import edu.nadn2tetris.tokenizer.filter.RowFilter;
+import edu.nadn2tetris.tokenizer.iterator.TokenIterator;
 
 public final class JackTokenizer implements Closeable {
-    private static final RowTokenizer ROW_TOKENIZER = new RowTokenizer();
-    private final BufferedReader reader;
     private TokenType tokenType;
     private Keyword keyword;
     private char symbol;
     private short intVal;
     private String identifier;
     private String stringVal;
-    private final Iterator<String> tokens;
+
+    private final TokenIterator tokens;
 
     public JackTokenizer(InputStream is) {
-        this.reader = new BufferedReader(new InputStreamReader(is));
-        final Stream<String> lines = this.reader.lines();
-        this.tokens = this.reader.lines()
-                .flatMap(new RowFilter(lines.spliterator()))
-                .flatMap(ROW_TOKENIZER)
-                .filter(Objects::nonNull)
-                .iterator();
+        this.tokens = new TokenIterator(new BufferedReader(new InputStreamReader(is)));
     }
 
     public boolean hasMoreTokens() {
@@ -86,6 +76,6 @@ public final class JackTokenizer implements Closeable {
 
     @Override
     public void close() throws IOException {
-        this.reader.close();
+        this.tokens.close();
     }
 }

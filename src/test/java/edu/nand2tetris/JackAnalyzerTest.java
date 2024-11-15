@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -17,14 +18,14 @@ import org.junit.jupiter.api.Test;
 import edu.nadn2tetris.JackAnalyzer;
 import edu.nadn2tetris.utils.FileUtils;
 
-import static edu.nand2tetris.compiler.CompilationEngineTest.RES_DIR;
 
 public final class JackAnalyzerTest {
+    private static final Path RES_DIR = Paths.get("src", "test", "resources");
     private final static Path OUT_DIR = RES_DIR.resolve("out");
 
     @AfterEach
     public void cleanUp() throws IOException {
-//        FileUtils.removeDir(OUT_DIR);
+        FileUtils.removeDir(OUT_DIR);
     }
 
     @Test
@@ -44,17 +45,9 @@ public final class JackAnalyzerTest {
 
         JackAnalyzer.main(new String[]{srcFile.toString(), OUT_DIR.toString()});
 
-        final Map<String, Path> testFilesMap = Files.walk(testFiles)
-                .filter(s -> s.getFileName().toString().endsWith(".xml"))
-                .collect(
-                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
-                );
+        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
-        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR)
-                .filter(s -> s.getFileName().toString().endsWith(".xml"))
-                .collect(
-                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
-                );
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
         for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
             final Path testFile = testFilesMap.get(compileFileEntry.getKey());
@@ -69,17 +62,9 @@ public final class JackAnalyzerTest {
 
         JackAnalyzer.main(new String[]{srcFile.toString(), OUT_DIR.toString()});
 
-        final Map<String, Path> testFilesMap = Files.walk(testFiles)
-                .filter(s -> s.getFileName().toString().endsWith(".xml"))
-                .collect(
-                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
-                );
+        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
-        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR)
-                .filter(s -> s.getFileName().toString().endsWith(".xml"))
-                .collect(
-                        Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity())
-                );
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
         for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
             final Path testFile = testFilesMap.get(compileFileEntry.getKey());
