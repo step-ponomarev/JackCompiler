@@ -397,20 +397,13 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
-        // (expression) or (unaryOp expression)
+        // (expression)
         writeToken();
 
         advance();
-        final boolean isOp = isUnaryOp(tokenizer.symbol());
-        if (!isOp) {
-            compileExpression();
+        compileExpression();
 
-            advance();
-        } else {
-            compileExpression();
-        }
-
-        // )
+        advance();
         writeToken();
     }
 
