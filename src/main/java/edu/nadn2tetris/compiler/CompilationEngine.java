@@ -216,14 +216,14 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileStatementsNested() {
-        if (!isStatement()) {
+        if (isNotStatement()) {
             return;
         }
 
         compileStatement();
 
         advance();
-        if (tokenizer.tokenType() != TokenType.KEYWORD || !isStatement()) {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || isNotStatement()) {
             return;
         }
 
@@ -415,15 +415,7 @@ public final class CompilationEngine implements Closeable {
             compileExpression();
         }
 
-        if (isOp) {
-            writeToken();
-            return;
-        }
-
         writeToken();
-        advance();
-
-        compileTerm();
     }
 
     private static boolean isUnaryOp(char op) {
@@ -579,17 +571,17 @@ public final class CompilationEngine implements Closeable {
         tokenIsBuffered = false;
     }
 
-    private boolean isStatement() {
+    private boolean isNotStatement() {
         if (tokenizer.tokenType() != TokenType.KEYWORD) {
-            return false;
+            return true;
         }
 
         final Keyword keyword = tokenizer.keyword();
-        return keyword == Keyword.LET
-                || keyword == Keyword.IF
-                || keyword == Keyword.WHILE
-                || keyword == Keyword.DO
-                || keyword == Keyword.RETURN;
+        return keyword != Keyword.LET
+                && keyword != Keyword.IF
+                && keyword != Keyword.WHILE
+                && keyword != Keyword.DO
+                && keyword != Keyword.RETURN;
     }
 
     private void openBlock(StatementType statementType) {
@@ -653,7 +645,7 @@ public final class CompilationEngine implements Closeable {
         INTEGER_CONSTANT("integerConstant"),
         TERM("term");
 
-        public String tagName;
+        public final String tagName;
 
         StatementType(String tagName) {
             this.tagName = tagName;
