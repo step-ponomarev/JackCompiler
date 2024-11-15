@@ -424,17 +424,16 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileTermIdentifier() {
-        writeToken();
+        writeToken(); // identifier
 
-        //just identifier
         advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL) {
+        final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL;
+        if (varName) {
             return;
         }
 
-        //array, expression
-        final boolean isArray = tokenizer.symbol() == '[';
-        if (tokenizer.symbol() == '(' || isArray) {
+        boolean arrayOrExpressionInBrackets = tokenizer.symbol() == '[' || tokenizer.symbol() == '(';
+        if (arrayOrExpressionInBrackets) {
             writeToken();
 
             advance();
@@ -442,19 +441,15 @@ public final class CompilationEngine implements Closeable {
 
             advance();
             writeToken();
+        }
 
-            if (isArray) {
-                return;
-            }
-
-            // .
-            advance();
-            writeToken();
-        } else if (tokenizer.symbol() == '.') {
-            writeToken();
-        } else {
+        advance();
+        final boolean subroutineCall = tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '.';
+        if (!subroutineCall) {
             return;
         }
+
+        writeToken();
 
         advance();
         compileSubroutineCallAfterDot(false);
