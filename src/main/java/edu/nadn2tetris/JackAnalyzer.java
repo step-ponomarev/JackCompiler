@@ -7,9 +7,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import edu.nadn2tetris.compiler.CompilationEngine;
+import edu.nadn2tetris.compiler.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.utils.FileUtils;
 
@@ -20,6 +23,11 @@ public final class JackAnalyzer {
             throw new IllegalArgumentException("Invalid arguments count: " + args.length);
         }
 
+        final Set<Flag> flags = new HashSet<>();
+        for (short i = 2; i < args.length; i++) {
+            flags.add(Flag.parse(args[i]));
+        }
+
         final Path outDir = Paths.get(args[1]);
         try {
             final List<Path> sourceFiles = getSourceFiles(Paths.get(args[0]));
@@ -27,7 +35,7 @@ public final class JackAnalyzer {
                 Files.createDirectory(outDir);
             }
 
-            compile(sourceFiles, outDir);
+            compile(sourceFiles, outDir, flags);
         } catch (IOException e) {
             try {
                 FileUtils.removeDir(outDir);
@@ -55,7 +63,7 @@ public final class JackAnalyzer {
         return sourceFiles;
     }
 
-    private static void compile(List<Path> srcFiles, Path outDir) throws IOException {
+    private static void compile(List<Path> srcFiles, Path outDir, Set<Flag> flags) throws IOException {
         if (srcFiles == null || srcFiles.isEmpty()) {
             return;
         }
@@ -68,7 +76,8 @@ public final class JackAnalyzer {
             try (
                     final CompilationEngine engine = new CompilationEngine(
                             new JackTokenizer(new FileInputStream(src.toFile())),
-                            new FileOutputStream(outFile.toFile())
+                            new FileOutputStream(outFile.toFile()),
+                            flags
                     )
             ) {
                 engine.compileClass();

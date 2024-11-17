@@ -72,6 +72,17 @@ public final class JackAnalyzerTest {
         }
     }
 
+    @Test
+    public void testExtended() {
+        JackAnalyzer.main(
+                new String[]{
+                        RES_DIR.resolve("src/Square").toString(),
+                        OUT_DIR.toString(),
+                        "-e"
+                }
+        );
+    }
+
     private static void compareFiles(File firstFile, File secondFile) throws IOException {
         final BufferedReader testReader = new BufferedReader(new FileReader(firstFile));
         final BufferedReader compiledReader = new BufferedReader(new FileReader(secondFile));
@@ -79,7 +90,7 @@ public final class JackAnalyzerTest {
         String first;
         String second;
         while ((first = testReader.readLine()) != null && (second = compiledReader.readLine()) != null) {
-//            Assertions.assertEquals(first, second);
+            Assertions.assertEquals(first, second);
         }
     }
 }

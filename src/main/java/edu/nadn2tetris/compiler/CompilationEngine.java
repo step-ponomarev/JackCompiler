@@ -5,6 +5,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Stack;
 
 import edu.nadn2tetris.common.Keyword;
@@ -19,6 +21,7 @@ public final class CompilationEngine implements Closeable {
 
     private final JackTokenizer tokenizer;
     private final BufferedWriter bufferedWriter;
+    private final StringBuilder xml = new StringBuilder();
 
     private final Stack<StatementType> statementTypeNesting = new Stack<>();
     private final SymbolTable classSymbolTable = new SymbolTable();
@@ -27,14 +30,15 @@ public final class CompilationEngine implements Closeable {
     private Kind declarationKind = null;
     private String declarationType = null;
 
-    private boolean extendedIdentifierInfo = true;
-
     private boolean tokenIsBuffered = false;
     private int nestingLevel = 0;
 
-    public CompilationEngine(JackTokenizer tokenizer, OutputStream out) {
+    private final Set<Flag> flags;
+
+    public CompilationEngine(JackTokenizer tokenizer, OutputStream out, Set<Flag> flags) {
         this.tokenizer = tokenizer;
         this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(out));
+        this.flags = flags == null ? new HashSet<>() : flags;
     }
 
     public void compileClass() {
@@ -85,13 +89,18 @@ public final class CompilationEngine implements Closeable {
         handleToken();
 
         advance();
-        handleToken();
+
         declarationType = getType(tokenizer);
+        handleToken();
 
         advance();
+
+        declarationKind = tokenizer.keyword() == Keyword.STATIC ? Kind.STATIC : Kind.FIELD;
         handleToken();
 
         if (!tokenizer.hasMoreTokens()) {
+            declarationType = null;
+            declarationKind = null;
             closeBlock(StatementType.CLASS_VAR_DEC);
             return;
         }
@@ -99,6 +108,8 @@ public final class CompilationEngine implements Closeable {
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
             handleToken();
+            declarationType = null;
+            declarationKind = null;
             closeBlock(StatementType.CLASS_VAR_DEC);
             return;
         }
@@ -108,6 +119,9 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         compileVarDec(true);
+
+        declarationType = null;
+        declarationKind = null;
         closeBlock(StatementType.CLASS_VAR_DEC);
     }
 
@@ -157,17 +171,26 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileParameterList() {
+        boolean declareVariables = statementTypeNesting.peek() == StatementType.SUBROUTINE_DEC;
         openBlock(StatementType.PARAMETER_LIST);
-        compileParameterListNested();
+        compileParameterListNested(declareVariables);
         closeBlock(StatementType.PARAMETER_LIST);
     }
 
     private void compileParameterListNested() {
+        compileParameterListNested(false);
+    }
+
+    private void compileParameterListNested(boolean declareVariables) {
         if (!isType(tokenizer)) {
             return;
         }
 
-        declarationType = getType(tokenizer);
+        if (declareVariables) {
+            declarationKind = Kind.ARG;
+            declarationType = getType(tokenizer);
+        }
+
         handleToken();
 
         advance();
@@ -175,6 +198,10 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
+            if (declareVariables) {
+                declarationKind = null;
+                declarationType = null;
+            }
             return;
         }
 
@@ -182,7 +209,12 @@ public final class CompilationEngine implements Closeable {
         handleToken();
 
         advance();
-        compileParameterListNested();
+        compileParameterListNested(declareVariables);
+
+        if (declareVariables) {
+            declarationKind = null;
+            declarationType = null;
+        }
     }
 
     private static boolean isType(JackTokenizer tokenizer) {
@@ -211,6 +243,7 @@ public final class CompilationEngine implements Closeable {
 
     private void compileVarDec(boolean list) {
         if (!list) {
+            declarationKind = Kind.VAR;
             handleToken();
 
             advance();
@@ -225,13 +258,19 @@ public final class CompilationEngine implements Closeable {
         advance();
         if (tokenizer.symbol() == ';') {
             handleToken();
+            declarationKind = null;
+            declarationType = null;
             return;
         }
 
-        handleToken();
+        handleToken(); //,
 
         advance();
         compileVarDec(true);
+        if (!list) {
+            declarationKind = null;
+            declarationType = null;
+        }
     }
 
     public void compileStatements() {
@@ -563,26 +602,51 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void handleToken() {
-        try {
-            switch (tokenizer.tokenType()) {
-                case KEYWORD -> bufferedWriter.write(wrapKeyword(tokenizer.keyword()));
-                case IDENTIFIER -> handleIdentifier();
-                case SYMBOL -> bufferedWriter.write(wrapSymbol(tokenizer.symbol()));
-                case INT_CONST -> bufferedWriter.write(wrapIntConst(tokenizer.intVal()));
-                case STRING_CONST -> bufferedWriter.write(wrapStringConst(tokenizer.stringVal()));
-                default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        switch (tokenizer.tokenType()) {
+            case KEYWORD -> xml.append(wrapKeyword(tokenizer.keyword()));
+            case IDENTIFIER -> handleIdentifier();
+            case SYMBOL -> xml.append(wrapSymbol(tokenizer.symbol()));
+            case INT_CONST -> xml.append(wrapIntConst(tokenizer.intVal()));
+            case STRING_CONST -> xml.append(wrapStringConst(tokenizer.stringVal()));
+            default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
         }
 
         tokenIsBuffered = false;
     }
 
-    private void handleIdentifier() throws IOException {
-        String identifier = wrapIdentifier(tokenizer.identifier());
+    private void handleIdentifier() {
+        final String identifier = tokenizer.identifier();
 
-        bufferedWriter.write(identifier);
+        String identifierXml = "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
+        if (!flags.contains(Flag.EXTENDED_IDENTIFIER)) {
+            xml.append(identifierXml);
+            return;
+        }
+
+        final boolean declaration = declarationKind != null && declarationType != null;
+        if (declaration) {
+            defineIdentifier(identifier);
+        }
+
+        final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
+        if (identifierInfo == null) {
+            xml.append(identifierXml);
+            return;
+        }
+
+        identifierXml = "%s<identifier category=\"%s\" index=\"%d\" declaration=\"%s\"> %s </identifier>\n".formatted(
+                TAB_SYMBOL.repeat(nestingLevel),
+                declaration
+                        ? identifierInfo.kind.name().toLowerCase()
+                        : identifierInfo.kind == Kind.STATIC || identifierInfo.kind == Kind.FIELD
+                        ? Kind.CLASS.name().toLowerCase()
+                        : Kind.SUBROUTINE.name().toLowerCase(),
+                indexOf(identifier),
+                declaration,
+                identifier
+        );
+
+        xml.append(identifierXml);
     }
 
     private boolean isNotStatement() {
@@ -599,84 +663,47 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void openBlock(StatementType statementType) {
-        try {
-            if (statementType == StatementType.CLASS_VAR_DEC) {
-                declarationKind = tokenizer.keyword() == Keyword.STATIC ? Kind.STATIC : Kind.FIELD;
-            } else if (statementType == StatementType.VAR_DEC) {
-                declarationKind = Kind.VAR;
-            } else if (statementType == StatementType.PARAMETER_LIST && statementTypeNesting.peek() == StatementType.SUBROUTINE_DEC) {
-                declarationKind = Kind.ARG;
-            }
-
-            bufferedWriter.write("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), statementType.tagName));
-            statementTypeNesting.add(statementType);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        xml.append("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), statementType.tagName));
+        statementTypeNesting.add(statementType);
     }
 
     private void closeBlock(StatementType statementType) {
-        try {
-            bufferedWriter.write("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), statementType.tagName));
-
-            if (statementType == StatementType.SUBROUTINE_DEC || statementType == StatementType.CLASS) {
-                procedureSymbolTable.reset();
-            }
-
-            declarationKind = null;
-            statementTypeNesting.pop();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (statementType == StatementType.SUBROUTINE_DEC || statementType == StatementType.CLASS) {
+            procedureSymbolTable.reset();
         }
+
+        statementTypeNesting.pop();
+        xml.append("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), statementType.tagName));
     }
 
     private String wrapKeyword(Keyword keyword) {
         return "%s<keyword> %s </keyword>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), keyword.name().toLowerCase());
     }
 
-    //TODO: Отсюда нунжно вынести
-    //      1) Метод имеет побочки
-    //      2) Задевает кейсы, которые не нужно задевать, например объявление с объектным типом
-    private String wrapIdentifier(String identifier) {
-        if (!extendedIdentifierInfo) {
-            return "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
+    private short indexOf(String name) {
+        IdentifierInfo identifierInfo = procedureSymbolTable.getIdentifierInfo(name);
+        if (identifierInfo != null) {
+            return procedureSymbolTable.indexOf(name);
         }
 
-        final boolean declaration = declarationKind != null && declarationType != null;
-        SymbolTable table = declarationKind == Kind.FIELD || declarationKind == Kind.STATIC
-                ? classSymbolTable
-                : procedureSymbolTable;
-
-        if (declaration) {
-            table.define(identifier, declarationType, declarationKind);
-        }
-
-        final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
+        identifierInfo = classSymbolTable.getIdentifierInfo(name);
         if (identifierInfo == null) {
-            return "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
+            throw new IllegalStateException("Undefined identifier: " + name);
         }
 
-        table = identifierInfo.kind == Kind.FIELD || identifierInfo.kind == Kind.STATIC
+        return classSymbolTable.indexOf(name);
+    }
+
+    private void defineIdentifier(String name) {
+        if (declarationKind == null || declarationType == null) {
+            throw new IllegalStateException("Invalid declaration");
+        }
+
+        final SymbolTable table = declarationKind == Kind.FIELD || declarationKind == Kind.STATIC
                 ? classSymbolTable
                 : procedureSymbolTable;
 
-        final String res = "%s<identifier category=\"%s\" index=\"%d\" declaration=\"%s\"> %s </identifier>\n".formatted(
-                TAB_SYMBOL.repeat(nestingLevel),
-                declaration
-                        ? identifierInfo.kind.name().toLowerCase()
-                        : identifierInfo.kind == Kind.STATIC || identifierInfo.kind == Kind.FIELD
-                        ? Kind.CLASS.name().toLowerCase()
-                        : Kind.SUBROUTINE.name().toLowerCase(),
-                table.indexOf(identifier),
-                declaration,
-                identifier
-        );
-
-        // записали, занулили
-        declarationType = null;
-        declarationKind = null;
-
-        return res;
+        table.define(name, declarationType, declarationKind);
     }
 
     private IdentifierInfo getIdentifierInfo(String name) {
@@ -700,14 +727,10 @@ public final class CompilationEngine implements Closeable {
         return "%s<stringConstant> %s </stringConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
     }
 
-    public void setExtendedIdentifierInfo(boolean extended) {
-        this.extendedIdentifierInfo = extended;
-    }
-
     @Override
     public void close() throws IOException {
         this.tokenizer.close();
-        this.bufferedWriter.close();
+        this.bufferedWriter.append(xml).close();
     }
 
     enum StatementType {
