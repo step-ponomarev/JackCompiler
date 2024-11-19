@@ -25,7 +25,7 @@ public final class JackAnalyzerTest {
 
     @AfterEach
     public void cleanUp() throws IOException {
-//        FileUtils.removeDir(OUT_DIR);
+        FileUtils.removeDir(OUT_DIR);
     }
 
     @Test
@@ -72,11 +72,12 @@ public final class JackAnalyzerTest {
         }
     }
 
+    //TODO: пока что ничего не тестирует
     @Test
     public void testExtended() {
         JackAnalyzer.main(
                 new String[]{
-                        RES_DIR.resolve("src/Square").toString(),
+                        RES_DIR.resolve("src/ExpressionLessSquare").toString(),
                         OUT_DIR.toString(),
                         "-e"
                 }

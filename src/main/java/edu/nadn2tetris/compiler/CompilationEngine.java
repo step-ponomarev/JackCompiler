@@ -241,8 +241,8 @@ public final class CompilationEngine implements Closeable {
         closeBlock(StatementType.VAR_DEC);
     }
 
-    private void compileVarDec(boolean list) {
-        if (!list) {
+    private void compileVarDec(boolean listDeclaration) {
+        if (!listDeclaration) {
             declarationKind = Kind.VAR;
             handleToken();
 
@@ -267,7 +267,7 @@ public final class CompilationEngine implements Closeable {
 
         advance();
         compileVarDec(true);
-        if (!list) {
+        if (!listDeclaration) {
             declarationKind = null;
             declarationType = null;
         }
@@ -634,13 +634,15 @@ public final class CompilationEngine implements Closeable {
             return;
         }
 
+        final String category = declaration
+                ? identifierInfo.kind.name().toLowerCase()
+                : identifierInfo.kind == Kind.STATIC || identifierInfo.kind == Kind.FIELD
+                ? Kind.CLASS.name().toLowerCase()
+                : Kind.SUBROUTINE.name().toLowerCase();
+
         identifierXml = "%s<identifier category=\"%s\" index=\"%d\" declaration=\"%s\"> %s </identifier>\n".formatted(
                 TAB_SYMBOL.repeat(nestingLevel),
-                declaration
-                        ? identifierInfo.kind.name().toLowerCase()
-                        : identifierInfo.kind == Kind.STATIC || identifierInfo.kind == Kind.FIELD
-                        ? Kind.CLASS.name().toLowerCase()
-                        : Kind.SUBROUTINE.name().toLowerCase(),
+                category,
                 indexOf(identifier),
                 declaration,
                 identifier
