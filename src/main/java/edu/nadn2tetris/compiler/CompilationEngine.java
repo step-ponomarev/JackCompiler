@@ -5,57 +5,78 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Stack;
 
+import edu.nadn2tetris.ast.AbstractSyntaxTree;
+import edu.nadn2tetris.ast.ExpressionTree;
+import edu.nadn2tetris.ast.term.ArraySyntaxTree;
+import edu.nadn2tetris.ast.term.BinaryOpTree;
+import edu.nadn2tetris.ast.term.IdentifierTree;
+import edu.nadn2tetris.ast.term.IntegerConstantTree;
+import edu.nadn2tetris.ast.term.KeywordConstantTree;
+import edu.nadn2tetris.ast.term.StringConstantTree;
+import edu.nadn2tetris.ast.term.SubroutineCallTree;
+import edu.nadn2tetris.ast.term.UnaryOpTree;
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 import edu.nadn2tetris.table.IdentifierInfo;
-import edu.nadn2tetris.table.Kind;
 import edu.nadn2tetris.table.SymbolTable;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
+import edu.nadn2tetris.writer.Command;
+import edu.nadn2tetris.writer.Segment;
+import edu.nadn2tetris.writer.VMWriter;
 
 public final class CompilationEngine implements Closeable {
     private static final String TAB_SYMBOL = "\s\s";
 
     private final JackTokenizer tokenizer;
-    private final BufferedWriter bufferedWriter;
+    private final Writer bufferedWriter;
     private final StringBuilder xml = new StringBuilder();
+    private final VMWriter vmWriter;
 
-    private final Stack<StatementType> statementTypeNesting = new Stack<>();
+    private final Stack<Kind> kindNesting = new Stack<>();
     private final SymbolTable classSymbolTable = new SymbolTable();
     private final SymbolTable procedureSymbolTable = new SymbolTable();
 
-    private Kind declarationKind = null;
+    private edu.nadn2tetris.table.Kind declarationKind = null;
     private String declarationType = null;
-
-    private boolean tokenIsBuffered = false;
     private int nestingLevel = 0;
 
     private final Set<Flag> flags;
 
+    private final Stack<String> expression = new Stack<>();
+
     public CompilationEngine(JackTokenizer tokenizer, OutputStream out, Set<Flag> flags) {
-        this.tokenizer = tokenizer;
-        this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(out));
         this.flags = flags == null ? new HashSet<>() : flags;
+
+        this.tokenizer = tokenizer;
+
+        final BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(out));
+        this.vmWriter = this.flags.contains(Flag.GENERATE_CODE) ? new VMWriter(bufferedWriter) : null;
+        this.bufferedWriter = this.flags.contains(Flag.GENERATE_CODE) ? null : bufferedWriter;
     }
 
     public void compileClass() {
         advance();
-        openBlock(StatementType.CLASS);
+        openBlock(Kind.CLASS);
 
-        handleToken();
+        handleTokenXml();
         advance();
-        handleToken();
+        handleTokenXml();
 
         // {
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
-            handleToken();
+            handleTokenXml();
             return;
         }
 
@@ -70,8 +91,8 @@ public final class CompilationEngine implements Closeable {
         }
 
         // }
-        handleToken();
-        closeBlock(StatementType.CLASS);
+        handleTokenXml();
+        closeBlock(Kind.CLASS);
     }
 
     private boolean isSubroutineDec(Keyword keyword) {
@@ -85,76 +106,76 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileClassVarDec() {
-        openBlock(StatementType.CLASS_VAR_DEC);
-        handleToken();
+        openBlock(Kind.CLASS_VAR_DEC);
+        handleTokenXml();
 
         advance();
 
         declarationType = getType(tokenizer);
-        handleToken();
+        handleTokenXml();
 
         advance();
 
-        declarationKind = tokenizer.keyword() == Keyword.STATIC ? Kind.STATIC : Kind.FIELD;
-        handleToken();
+        declarationKind = tokenizer.keyword() == Keyword.STATIC ? edu.nadn2tetris.table.Kind.STATIC : edu.nadn2tetris.table.Kind.FIELD;
+        handleTokenXml();
 
         if (!tokenizer.hasMoreTokens()) {
             declarationType = null;
             declarationKind = null;
-            closeBlock(StatementType.CLASS_VAR_DEC);
+            closeBlock(Kind.CLASS_VAR_DEC);
             return;
         }
 
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
-            handleToken();
+            handleTokenXml();
             declarationType = null;
             declarationKind = null;
-            closeBlock(StatementType.CLASS_VAR_DEC);
+            closeBlock(Kind.CLASS_VAR_DEC);
             return;
         }
 
         //,
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileVarDec(true);
 
         declarationType = null;
         declarationKind = null;
-        closeBlock(StatementType.CLASS_VAR_DEC);
+        closeBlock(Kind.CLASS_VAR_DEC);
     }
 
     public void compileSubroutine() {
-        openBlock(StatementType.SUBROUTINE_DEC);
-        handleToken();
+        openBlock(Kind.SUBROUTINE_DEC);
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         //(
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileParameterList();
 
         //)
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileSubroutineBody();
-        closeBlock(StatementType.SUBROUTINE_DEC);
+        closeBlock(Kind.SUBROUTINE_DEC);
     }
 
     public void compileSubroutineBody() {
-        openBlock(StatementType.SUBROUTINE_BODY);
+        openBlock(Kind.SUBROUTINE_BODY);
         //{
-        handleToken();
+        handleTokenXml();
 
         advance();
         while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
@@ -166,15 +187,15 @@ public final class CompilationEngine implements Closeable {
 
         //}
         advance();
-        handleToken();
-        closeBlock(StatementType.SUBROUTINE_BODY);
+        handleTokenXml();
+        closeBlock(Kind.SUBROUTINE_BODY);
     }
 
     public void compileParameterList() {
-        boolean declareVariables = statementTypeNesting.peek() == StatementType.SUBROUTINE_DEC;
-        openBlock(StatementType.PARAMETER_LIST);
+        boolean declareVariables = kindNesting.peek() == Kind.SUBROUTINE_DEC;
+        openBlock(Kind.PARAMETER_LIST);
         compileParameterListNested(declareVariables);
-        closeBlock(StatementType.PARAMETER_LIST);
+        closeBlock(Kind.PARAMETER_LIST);
     }
 
     private void compileParameterListNested() {
@@ -187,14 +208,14 @@ public final class CompilationEngine implements Closeable {
         }
 
         if (declareVariables) {
-            declarationKind = Kind.ARG;
+            declarationKind = edu.nadn2tetris.table.Kind.ARG;
             declarationType = getType(tokenizer);
         }
 
-        handleToken();
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
@@ -206,7 +227,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         //,
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileParameterListNested(declareVariables);
@@ -236,34 +257,34 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileVarDec() {
-        openBlock(StatementType.VAR_DEC);
+        openBlock(Kind.VAR_DEC);
         compileVarDec(false);
-        closeBlock(StatementType.VAR_DEC);
+        closeBlock(Kind.VAR_DEC);
     }
 
     private void compileVarDec(boolean listDeclaration) {
         if (!listDeclaration) {
-            declarationKind = Kind.VAR;
-            handleToken();
+            declarationKind = edu.nadn2tetris.table.Kind.VAR;
+            handleTokenXml();
 
             advance();
-            handleToken();
+            handleTokenXml();
             declarationType = getType(tokenizer);
 
             advance();
         }
 
-        handleToken();
+        handleTokenXml();
 
         advance();
         if (tokenizer.symbol() == ';') {
-            handleToken();
+            handleTokenXml();
             declarationKind = null;
             declarationType = null;
             return;
         }
 
-        handleToken(); //,
+        handleTokenXml(); //,
 
         advance();
         compileVarDec(true);
@@ -274,9 +295,9 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileStatements() {
-        openBlock(StatementType.STATEMENTS);
+        openBlock(Kind.STATEMENTS);
         compileStatementsNested();
-        closeBlock(StatementType.STATEMENTS);
+        closeBlock(Kind.STATEMENTS);
     }
 
     private void compileStatementsNested() {
@@ -306,169 +327,205 @@ public final class CompilationEngine implements Closeable {
     }
 
     public void compileLet() {
-        openBlock(StatementType.LET_STATEMENT);
-        handleToken();
+        openBlock(Kind.LET_STATEMENT);
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
-            handleToken();
+            handleTokenXml();
             advance();
             compileExpression();
 
             advance();
-            handleToken();
+            handleTokenXml();
 
             // =
             advance();
         }
 
         // =
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileExpression();
 
         advance();
-        handleToken();
-        closeBlock(StatementType.LET_STATEMENT);
+        handleTokenXml();
+        closeBlock(Kind.LET_STATEMENT);
     }
 
     public void compileIf() {
-        openBlock(StatementType.IF_STATEMENT);
-        handleToken();
+        openBlock(Kind.IF_STATEMENT);
+        handleTokenXml();
 
         advance();
         compileConditionalStatements();
         if (!tokenizer.hasMoreTokens()) {
-            closeBlock(StatementType.IF_STATEMENT);
+            closeBlock(Kind.IF_STATEMENT);
             return;
         }
 
         advance();
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
-            closeBlock(StatementType.IF_STATEMENT);
+            closeBlock(Kind.IF_STATEMENT);
             return;
         }
 
-        handleToken();
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileStatements();
 
         advance();
-        handleToken();
-        closeBlock(StatementType.IF_STATEMENT);
+        handleTokenXml();
+        closeBlock(Kind.IF_STATEMENT);
     }
 
     public void compileWhile() {
-        openBlock(StatementType.WHILE_STATEMENT);
-        handleToken();
+        openBlock(Kind.WHILE_STATEMENT);
+        handleTokenXml();
         advance();
 
         compileConditionalStatements();
-        closeBlock(StatementType.WHILE_STATEMENT);
+        closeBlock(Kind.WHILE_STATEMENT);
     }
 
     private void compileConditionalStatements() {
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileExpression();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         // {
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
         compileStatements();
 
         advance();
 
-        handleToken();
+        handleTokenXml();
     }
 
     public void compileDo() {
-        openBlock(StatementType.DO_STATEMENT);
-        handleToken();
+        openBlock(Kind.DO_STATEMENT);
+        handleTokenXml();
 
         advance();
         compileSubroutineCall();
-        closeBlock(StatementType.DO_STATEMENT);
+        closeBlock(Kind.DO_STATEMENT);
     }
 
     public void compileReturn() {
-        openBlock(StatementType.RETURN_STATEMENT);
-        handleToken();
+        openBlock(Kind.RETURN_STATEMENT);
+        handleTokenXml();
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            handleToken();
-            closeBlock(StatementType.RETURN_STATEMENT);
+            handleTokenXml();
             return;
         }
 
         compileExpression();
         advance();
-        handleToken();
-        closeBlock(StatementType.RETURN_STATEMENT);
+        handleTokenXml();
     }
 
-    public void compileExpression() {
-        openBlock(StatementType.EXPRESSION);
-        compileTerm();
+    public ExpressionTree compileExpression() {
+        final ExpressionTree expressionTree = new ExpressionTree();
+        compileExpression(expressionTree);
+
+        return expressionTree;
+    }
+
+    private ExpressionTree compileExpression(ExpressionTree expressionTree) {
+        final AbstractSyntaxTree term = compileTerm();
         if (!tokenizer.hasMoreTokens()) {
-            closeBlock(StatementType.EXPRESSION);
-            return;
+            expressionTree.curr = term;
+            return expressionTree;
         }
 
         advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
-            handleToken();
-            advance();
-            compileTerm();
+        if (tokenizer.tokenType() != TokenType.SYMBOL || !isOp(tokenizer.symbol())) {
+            expressionTree.curr = term;
+            return expressionTree;
         }
-        closeBlock(StatementType.EXPRESSION);
+
+        expressionTree.left = new ExpressionTree(term);
+        expressionTree.curr = compileTerm(); // op
+        expressionTree.right = new ExpressionTree();
+
+        advance();
+        return compileExpression(expressionTree.right);
     }
 
-    public void compileTerm() {
-        openBlock(StatementType.TERM);
+    public AbstractSyntaxTree compileTerm() {
         final TokenType tokenType = tokenizer.tokenType();
-        switch (tokenType) {
+        return switch (tokenType) {
             case IDENTIFIER -> compileTermIdentifier();
             case SYMBOL -> compileTermSymbol();
-            default -> handleToken();
-        }
-        closeBlock(StatementType.TERM);
+            default -> compileTermConstant();
+        };
     }
 
-    private void compileTermSymbol() {
-        // unaryOp expression
-        if (isUnaryOp(tokenizer.symbol())) {
-            handleToken();
+    private AbstractSyntaxTree compileTermConstant() {
+        return switch (tokenizer.tokenType()) {
+            case INT_CONST -> new IntegerConstantTree(tokenizer.intVal());
+            case STRING_CONST -> new StringConstantTree(tokenizer.stringVal());
+            case KEYWORD -> new KeywordConstantTree(convert(tokenizer.keyword()));
+            default -> throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
+        };
+    }
 
-            advance();
-            compileTerm();
-            return;
+    private static KeywordConstantTree.Keyword convert(Keyword keyword) {
+        return switch (keyword) {
+            case THIS -> KeywordConstantTree.Keyword.THIS;
+            case FALSE -> KeywordConstantTree.Keyword.FALSE;
+            case TRUE -> KeywordConstantTree.Keyword.TRUE;
+            case NULL -> KeywordConstantTree.Keyword.NULL;
+            default -> throw new IllegalArgumentException("Unsupported keyword " + keyword);
+        };
+    }
+
+    private AbstractSyntaxTree compileTermSymbol() {
+        if (isOp(tokenizer.symbol())) {
+            return new BinaryOpTree(convert(tokenizer.symbol()));
         }
 
-        // (expression)
-        handleToken();
+        if (isUnaryOp(tokenizer.symbol())) {
+            final UnaryOpTree.Op op = tokenizer.symbol() == '~' ? UnaryOpTree.Op.NOT : UnaryOpTree.Op.NEG;
 
-        advance();
-        compileExpression();
+            advance();
+            return new UnaryOpTree(op);
+        }
 
-        advance();
-        handleToken();
+        return compileExpression();
+    }
+
+    private BinaryOpTree.Op convert(char ch) {
+       return switch (ch) {
+           case '+' -> BinaryOpTree.Op.ADD;
+           case '-' -> BinaryOpTree.Op.SUB;
+           case '*' -> BinaryOpTree.Op.MUL;
+           case '/' -> BinaryOpTree.Op.DIV;
+           case '&' -> BinaryOpTree.Op.AND;
+           case '|' -> BinaryOpTree.Op.OR;
+           case '<' -> BinaryOpTree.Op.LS;
+           case '>' -> BinaryOpTree.Op.GT;
+           case '=' -> BinaryOpTree.Op.EQ;
+           default -> throw new IllegalStateException("Unexpected token: " + ch);
+        };
     }
 
     private static boolean isUnaryOp(char op) {
@@ -487,55 +544,63 @@ public final class CompilationEngine implements Closeable {
                 || op == '=';
     }
 
-    private void compileTermIdentifier() {
-        handleToken(); // identifier
+    private AbstractSyntaxTree compileTermIdentifier() {
+        final String identifier = tokenizer.identifier();
 
         advance();
-        final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL;
+        final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ';';
         if (varName) {
-            return;
+            return new IdentifierTree(identifier);
         }
 
-        boolean arrayOrExpressionInBrackets = tokenizer.symbol() == '[' || tokenizer.symbol() == '(';
-        if (arrayOrExpressionInBrackets) {
-            handleToken();
+        if (tokenizer.symbol() == '[') {
+            advance(); // [
+            final ArraySyntaxTree arraySyntaxTree = new ArraySyntaxTree(identifier, compileExpression());
+            advance(); // ]
+
+            return arraySyntaxTree;
+        }
+
+        if (tokenizer.symbol() == '(') {
+            advance(); // (
+            final List<ExpressionTree> expressionList = compileExpressionList(new ArrayList<>());
+            advance(); // )
+
+            return new SubroutineCallTree(identifier, expressionList);
+        }
+
+        if (tokenizer.symbol() == '.') {
+            String subroutineIdentifier = identifier + tokenizer.symbol();
+            advance();
+            subroutineIdentifier += tokenizer.identifier();
 
             advance();
-            compileExpression();
+            final List<ExpressionTree> expressionTrees = compileExpressionList(new ArrayList<>());
 
-            advance();
-            handleToken();
+            return new SubroutineCallTree(subroutineIdentifier, expressionTrees);
         }
 
-        advance();
-        final boolean subroutineCall = tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '.';
-        if (!subroutineCall) {
-            return;
-        }
-
-        handleToken();
-
-        advance();
-        compileSubroutineCallAfterDot(false);
+        tokenizer.rollback();
+        return new IdentifierTree(identifier);
     }
 
     private void compileSubroutineCall() {
-        handleToken();
+        handleTokenXml();
 
         advance();
         if (tokenizer.symbol() == '(') {
-            handleToken();
+            handleTokenXml();
 
             advance();
-            compileExpressionList();
+            compileExpressionList(new ArrayList<>());
 
             advance();
-            handleToken();
+            handleTokenXml();
         }
 
         //dot or ;
         advance();
-        handleToken();
+        handleTokenXml();
         if (tokenizer.symbol() == ';') {
             return;
         }
@@ -545,21 +610,21 @@ public final class CompilationEngine implements Closeable {
     }
 
     private void compileSubroutineCallAfterDot(boolean writeLineEnd) {
-        handleToken();
+        handleTokenXml();
 
         advance();
-        handleToken();
+        handleTokenXml();
 
         advance();
-        compileExpressionList();
+        compileExpressionList(new ArrayList<>());
 
         // )
         advance();
-        handleToken();
+        handleTokenXml();
 
         if (writeLineEnd) {
             advance();
-            handleToken();
+            handleTokenXml();
         }
     }
 
@@ -567,51 +632,39 @@ public final class CompilationEngine implements Closeable {
         compileSubroutineCallAfterDot(true);
     }
 
-    public void compileExpressionList() {
-        openBlock(StatementType.EXPRESSION_LIST);
-        compileExpressionListNested();
-        closeBlock(StatementType.EXPRESSION_LIST);
-    }
-
-    private void compileExpressionListNested() {
+    public List<ExpressionTree> compileExpressionList(List<ExpressionTree> expressionTreeList) {
         if (!tokenizer.hasMoreTokens()) {
-            return;
+            return Collections.emptyList();
         }
 
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ')') {
-            return;
+            return Collections.emptyList();
         }
 
-        compileExpression();
+        expressionTreeList.add(compileExpression());
 
         advance();
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
-            handleToken();
             advance();
-            compileExpressionListNested();
+            return compileExpressionList(expressionTreeList);
         }
+
+        return expressionTreeList;
     }
 
     private void advance() {
-        if (tokenIsBuffered) {
-            return;
-        }
-
         tokenizer.advance();
-        tokenIsBuffered = true;
     }
 
-    private void handleToken() {
+    private void handleTokenXml() {
         switch (tokenizer.tokenType()) {
-            case KEYWORD -> xml.append(wrapKeyword(tokenizer.keyword()));
+            case KEYWORD -> appendXml(wrapKeyword(tokenizer.keyword()));
             case IDENTIFIER -> handleIdentifier();
-            case SYMBOL -> xml.append(wrapSymbol(tokenizer.symbol()));
-            case INT_CONST -> xml.append(wrapIntConst(tokenizer.intVal()));
-            case STRING_CONST -> xml.append(wrapStringConst(tokenizer.stringVal()));
+            case SYMBOL -> appendXml(wrapSymbol(tokenizer.symbol()));
+            case INT_CONST -> appendXml(wrapIntConst(tokenizer.intVal()));
+            case STRING_CONST -> appendXml(wrapStringConst(tokenizer.stringVal()));
             default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
         }
-
-        tokenIsBuffered = false;
     }
 
     private void handleIdentifier() {
@@ -619,7 +672,7 @@ public final class CompilationEngine implements Closeable {
 
         String identifierXml = "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
         if (!flags.contains(Flag.EXTENDED_IDENTIFIER)) {
-            xml.append(identifierXml);
+            appendXml(identifierXml);
             return;
         }
 
@@ -630,15 +683,15 @@ public final class CompilationEngine implements Closeable {
 
         final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
         if (identifierInfo == null) {
-            xml.append(identifierXml);
+            appendXml(identifierXml);
             return;
         }
 
         final String category = declaration
                 ? identifierInfo.kind.name().toLowerCase()
-                : identifierInfo.kind == Kind.STATIC || identifierInfo.kind == Kind.FIELD
-                ? Kind.CLASS.name().toLowerCase()
-                : Kind.SUBROUTINE.name().toLowerCase();
+                : identifierInfo.kind == edu.nadn2tetris.table.Kind.STATIC || identifierInfo.kind == edu.nadn2tetris.table.Kind.FIELD
+                ? edu.nadn2tetris.table.Kind.CLASS.name().toLowerCase()
+                : edu.nadn2tetris.table.Kind.SUBROUTINE.name().toLowerCase();
 
         identifierXml = "%s<identifier category=\"%s\" index=\"%d\" declaration=\"%s\"> %s </identifier>\n".formatted(
                 TAB_SYMBOL.repeat(nestingLevel),
@@ -648,7 +701,7 @@ public final class CompilationEngine implements Closeable {
                 identifier
         );
 
-        xml.append(identifierXml);
+        appendXml(identifierXml);
     }
 
     private boolean isNotStatement() {
@@ -664,18 +717,48 @@ public final class CompilationEngine implements Closeable {
                 && keyword != Keyword.RETURN;
     }
 
-    private void openBlock(StatementType statementType) {
-        xml.append("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), statementType.tagName));
-        statementTypeNesting.add(statementType);
+    private void openBlock(Kind kind) {
+        appendXml("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), kind.tagName));
+        kindNesting.add(kind);
     }
 
-    private void closeBlock(StatementType statementType) {
-        if (statementType == StatementType.SUBROUTINE_DEC || statementType == StatementType.CLASS) {
+    private void closeBlock(Kind kind) {
+        if (kind == Kind.SUBROUTINE_DEC || kind == Kind.CLASS) {
             procedureSymbolTable.reset();
         }
 
-        statementTypeNesting.pop();
-        xml.append("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), statementType.tagName));
+        if (kind == Kind.EXPRESSION && flags.contains(Flag.GENERATE_CODE)) {
+            generateExpression();
+        }
+
+        kindNesting.pop();
+        appendXml("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), kind.tagName));
+    }
+
+    //TODO: на данный момент это не будет работать для term op term op term...
+    // может строить нормальное AST??
+    private void generateExpression() {
+        if (expression.size() == 1) { // term
+            String identifier = expression.pop();
+            final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
+            final Segment seg = identifierInfo.kind == edu.nadn2tetris.table.Kind.CLASS ? Segment.THIS : Segment.LOCAL;
+
+            vmWriter.writePush(seg, indexOf(identifier));
+        } else { // term op term
+            while (!expression.isEmpty()) {
+                String identifier2 = expression.pop();
+                Command command = Command.parse(expression.pop().charAt(0));
+                pushIdentifier(expression.pop());
+                pushIdentifier(identifier2);
+                vmWriter.writeArithmetic(command);
+            }
+        }
+    }
+
+    private void pushIdentifier(String name) {
+        final IdentifierInfo identifierInfo = getIdentifierInfo(name);
+        final Segment seg = identifierInfo.kind == edu.nadn2tetris.table.Kind.CLASS ? Segment.THIS : Segment.LOCAL;
+        vmWriter.writePush(seg, indexOf(name));
     }
 
     private String wrapKeyword(Keyword keyword) {
@@ -701,7 +784,7 @@ public final class CompilationEngine implements Closeable {
             throw new IllegalStateException("Invalid declaration");
         }
 
-        final SymbolTable table = declarationKind == Kind.FIELD || declarationKind == Kind.STATIC
+        final SymbolTable table = declarationKind == edu.nadn2tetris.table.Kind.FIELD || declarationKind == edu.nadn2tetris.table.Kind.STATIC
                 ? classSymbolTable
                 : procedureSymbolTable;
 
@@ -729,13 +812,28 @@ public final class CompilationEngine implements Closeable {
         return "%s<stringConstant> %s </stringConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
     }
 
+    private void appendXml(String string) {
+        if (flags.contains(Flag.GENERATE_CODE)) {
+            return;
+        }
+
+        xml.append(string);
+    }
+
     @Override
     public void close() throws IOException {
         this.tokenizer.close();
-        this.bufferedWriter.append(xml).close();
+
+        if (this.bufferedWriter != null) {
+            this.bufferedWriter.append(xml).close();
+        }
+
+        if (this.vmWriter != null) {
+            this.vmWriter.close();
+        }
     }
 
-    enum StatementType {
+    private enum Kind {
         CLASS("class"),
         CLASS_VAR_DEC("classVarDec"),
         SUBROUTINE_DEC("subroutineDec"),
@@ -756,7 +854,7 @@ public final class CompilationEngine implements Closeable {
 
         public final String tagName;
 
-        StatementType(String tagName) {
+        Kind(String tagName) {
             this.tagName = tagName;
         }
     }

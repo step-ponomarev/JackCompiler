@@ -19,14 +19,13 @@ public final class SymbolTable {
      * @param kind kind
      */
     public void define(String name, String type, Kind kind) {
-        identifiers.put(name, new IdentifierInfo(name, type, kind));
+        final short [] index = new short[1];
         kindIndex.compute(kind, (Kind key, Short prev) -> {
-            if (prev == null) {
-                return (short) 0;
-            }
-
-            return (short) (prev + 1);
+            index[0] = (short) (prev == null ? 0 : prev + 1);
+            return index[0];
         });
+
+        identifiers.put(name, new IdentifierInfo(name, type, kind, index[0]));
     }
 
     public short varCount(Kind kind) {
@@ -44,11 +43,7 @@ public final class SymbolTable {
     }
 
     public short indexOf(String name) {
-        return varCount(
-                getIdentifierInfo(
-                        name
-                ).kind
-        );
+        return getIdentifierInfo(name).index;
     }
 
     public IdentifierInfo getIdentifierInfo(String name) {

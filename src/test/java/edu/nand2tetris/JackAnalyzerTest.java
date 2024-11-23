@@ -79,7 +79,8 @@ public final class JackAnalyzerTest {
                 new String[]{
                         RES_DIR.resolve("src/ExpressionLessSquare").toString(),
                         OUT_DIR.toString(),
-                        "-e"
+                        "-e",
+                        "-g"
                 }
         );
     }

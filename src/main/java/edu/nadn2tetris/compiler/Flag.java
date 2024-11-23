@@ -3,7 +3,8 @@ package edu.nadn2tetris.compiler;
 import java.util.Objects;
 
 public enum Flag {
-    EXTENDED_IDENTIFIER("-e");
+    EXTENDED_IDENTIFIER("-e"),
+    GENERATE_CODE("-g");
 
     private final String flag;
 
