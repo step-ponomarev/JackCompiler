@@ -11,6 +11,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.plaf.synth.SynthOptionPaneUI;
+
+import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.compiler.CompilationEngine;
 import edu.nadn2tetris.compiler.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
@@ -75,12 +78,11 @@ public final class JackAnalyzer {
 
             try (
                     final CompilationEngine engine = new CompilationEngine(
-                            new JackTokenizer(new FileInputStream(src.toFile())),
-                            new FileOutputStream(outFile.toFile()),
-                            flags
+                            new JackTokenizer(new FileInputStream(src.toFile()))
                     )
             ) {
-                engine.compileClass();
+                ClassTree classTree = engine.compileClass();
+                System.out.println("here");
             }
         }
     }

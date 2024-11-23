@@ -19,7 +19,7 @@ public final class CompileAstTest {
             jackTokenizer.advance();
 
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            CompilationEngine engine = new CompilationEngine(jackTokenizer, byteArrayOutputStream, null);
+            CompilationEngine engine = new CompilationEngine(jackTokenizer);
             ExpressionTree expressionTree = engine.compileExpression();
             System.out.println(expressionTree);
         } catch (IOException e) {

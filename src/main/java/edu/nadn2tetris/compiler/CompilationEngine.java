@@ -1,445 +1,358 @@
 package edu.nadn2tetris.compiler;
 
-import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.Stack;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
+import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.ast.ExpressionTree;
+import edu.nadn2tetris.ast.variables.ClassVarDeclarationTree;
+import edu.nadn2tetris.ast.variables.VarDeclarationTree;
+import edu.nadn2tetris.ast.statement.DoStatementTree;
+import edu.nadn2tetris.ast.statement.IfStatementTree;
+import edu.nadn2tetris.ast.statement.LetStatementTree;
+import edu.nadn2tetris.ast.statement.ReturnStatementTree;
+import edu.nadn2tetris.ast.statement.StatementTree;
+import edu.nadn2tetris.ast.statement.WhileStatementTree;
+import edu.nadn2tetris.ast.subroutine.SubroutineBodyTree;
+import edu.nadn2tetris.ast.subroutine.SubroutineDeclarationTree;
+import edu.nadn2tetris.ast.Type;
 import edu.nadn2tetris.ast.term.ArraySyntaxTree;
 import edu.nadn2tetris.ast.term.BinaryOpTree;
 import edu.nadn2tetris.ast.term.IdentifierTree;
 import edu.nadn2tetris.ast.term.IntegerConstantTree;
 import edu.nadn2tetris.ast.term.KeywordConstantTree;
+import edu.nadn2tetris.ast.term.ParameterTree;
 import edu.nadn2tetris.ast.term.StringConstantTree;
 import edu.nadn2tetris.ast.term.SubroutineCallTree;
 import edu.nadn2tetris.ast.term.UnaryOpTree;
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
-import edu.nadn2tetris.table.IdentifierInfo;
-import edu.nadn2tetris.table.SymbolTable;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
-import edu.nadn2tetris.writer.Command;
-import edu.nadn2tetris.writer.Segment;
-import edu.nadn2tetris.writer.VMWriter;
 
 public final class CompilationEngine implements Closeable {
-    private static final String TAB_SYMBOL = "\s\s";
-
     private final JackTokenizer tokenizer;
-    private final Writer bufferedWriter;
-    private final StringBuilder xml = new StringBuilder();
-    private final VMWriter vmWriter;
 
-    private final Stack<Kind> kindNesting = new Stack<>();
-    private final SymbolTable classSymbolTable = new SymbolTable();
-    private final SymbolTable procedureSymbolTable = new SymbolTable();
-
-    private edu.nadn2tetris.table.Kind declarationKind = null;
-    private String declarationType = null;
-    private int nestingLevel = 0;
-
-    private final Set<Flag> flags;
-
-    private final Stack<String> expression = new Stack<>();
-
-    public CompilationEngine(JackTokenizer tokenizer, OutputStream out, Set<Flag> flags) {
-        this.flags = flags == null ? new HashSet<>() : flags;
-
+    public CompilationEngine(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
-
-        final BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(out));
-        this.vmWriter = this.flags.contains(Flag.GENERATE_CODE) ? new VMWriter(bufferedWriter) : null;
-        this.bufferedWriter = this.flags.contains(Flag.GENERATE_CODE) ? null : bufferedWriter;
     }
 
-    public void compileClass() {
-        advance();
-        openBlock(Kind.CLASS);
+    public ClassTree compileClass() {
+        advance(); // start
+        advance(); // skip class
 
-        handleTokenXml();
-        advance();
-        handleTokenXml();
+        final ClassTree classTree = new ClassTree();
+        classTree.className = tokenizer.identifier();
+        advance(); // skip className
 
-        // {
-        advance();
-        handleTokenXml();
+        final ArrayList<AbstractSyntaxTree> innerClassNodes = new ArrayList<>();
 
         advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
-            handleTokenXml();
-            return;
+        // empty class
+        while (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '}') {
+            if (tokenizer.tokenType() != TokenType.KEYWORD) {
+                throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+            }
+
+            if (isClassVarDec(tokenizer.keyword())) {
+                innerClassNodes.add(compileClassVarDec());
+                advance();
+            } else if (isSubroutineDec(tokenizer.keyword())) {
+                innerClassNodes.add(compileSubroutine());
+                advance();
+            } else {
+                throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+            }
         }
 
-        while (tokenizer.tokenType() == TokenType.KEYWORD && isClassVarDec(tokenizer.keyword())) {
-            compileClassVarDec();
-            advance();
-        }
+        classTree.nodes = innerClassNodes;
 
-        while (tokenizer.tokenType() == TokenType.KEYWORD && isSubroutineDec(tokenizer.keyword())) {
-            compileSubroutine();
-            advance();
-        }
-
-        // }
-        handleTokenXml();
-        closeBlock(Kind.CLASS);
+        return classTree;
     }
 
     private boolean isSubroutineDec(Keyword keyword) {
-        return keyword == Keyword.CONSTRUCTOR
-                || keyword == Keyword.FUNCTION
-                || keyword == Keyword.METHOD;
+        return keyword == Keyword.CONSTRUCTOR || keyword == Keyword.FUNCTION || keyword == Keyword.METHOD;
     }
 
     private boolean isClassVarDec(Keyword keyword) {
         return keyword == Keyword.STATIC || keyword == Keyword.FIELD;
     }
 
-    public void compileClassVarDec() {
-        openBlock(Kind.CLASS_VAR_DEC);
-        handleTokenXml();
+    public ClassVarDeclarationTree compileClassVarDec() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || (tokenizer.keyword() != Keyword.STATIC && tokenizer.keyword() != Keyword.FIELD)) {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+        }
+
+        final ClassVarDeclarationTree classVarDeclarationTree = new ClassVarDeclarationTree();
+        classVarDeclarationTree.declarationType = tokenizer.keyword() == Keyword.STATIC ? ClassVarDeclarationTree.DeclarationType.STATIC : ClassVarDeclarationTree.DeclarationType.FIELD;
+
+
+        advance(); // skip field or static
+        classVarDeclarationTree.type = getType(tokenizer);
+        if (classVarDeclarationTree.type == Type.CLASS) {
+            classVarDeclarationTree.classNameType = tokenizer.identifier();
+        }
+
+        advance(); //skip type
+        classVarDeclarationTree.varNames = getVarNamesList();
+
+        return classVarDeclarationTree;
+    }
+
+    public SubroutineDeclarationTree compileSubroutine() {
+        Keyword keyword = tokenizer.keyword();
+        final SubroutineDeclarationTree.SubroutineType subroutineType = keyword == Keyword.CONSTRUCTOR ? SubroutineDeclarationTree.SubroutineType.CONSTRUCTOR : keyword == Keyword.METHOD ? SubroutineDeclarationTree.SubroutineType.METHOD : SubroutineDeclarationTree.SubroutineType.FUNCTION;
+
 
         advance();
-
-        declarationType = getType(tokenizer);
-        handleTokenXml();
-
-        advance();
-
-        declarationKind = tokenizer.keyword() == Keyword.STATIC ? edu.nadn2tetris.table.Kind.STATIC : edu.nadn2tetris.table.Kind.FIELD;
-        handleTokenXml();
-
-        if (!tokenizer.hasMoreTokens()) {
-            declarationType = null;
-            declarationKind = null;
-            closeBlock(Kind.CLASS_VAR_DEC);
-            return;
+        final SubroutineDeclarationTree subroutineDeclarationTree = new SubroutineDeclarationTree();
+        subroutineDeclarationTree.returnType = getType(tokenizer);
+        if (subroutineDeclarationTree.returnType == Type.CLASS) {
+            subroutineDeclarationTree.returnClassName = tokenizer.identifier();
         }
 
         advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
-            handleTokenXml();
-            declarationType = null;
-            declarationKind = null;
-            closeBlock(Kind.CLASS_VAR_DEC);
-            return;
+        subroutineDeclarationTree.name = tokenizer.identifier();
+
+        subroutineDeclarationTree.parameterList = compileParameterList();
+
+        advance(); // skip )
+        subroutineDeclarationTree.subroutineBodyTree = compileSubroutineBody();
+
+        return subroutineDeclarationTree;
+    }
+
+    public SubroutineBodyTree compileSubroutineBody() {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '{') {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
         }
 
-        //,
-        handleTokenXml();
+        advance(); // skip {
+        // empty method
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
+            return new SubroutineBodyTree(new ArrayList<>());
+        }
 
-        advance();
-        compileVarDec(true);
+        final ArrayList<AbstractSyntaxTree> nodes = new ArrayList<>();
 
-        declarationType = null;
-        declarationKind = null;
-        closeBlock(Kind.CLASS_VAR_DEC);
-    }
-
-    public void compileSubroutine() {
-        openBlock(Kind.SUBROUTINE_DEC);
-        handleTokenXml();
-
-        advance();
-        handleTokenXml();
-
-        advance();
-        handleTokenXml();
-
-        //(
-        advance();
-        handleTokenXml();
-
-        advance();
-        compileParameterList();
-
-        //)
-        advance();
-        handleTokenXml();
-
-        advance();
-        compileSubroutineBody();
-        closeBlock(Kind.SUBROUTINE_DEC);
-    }
-
-    public void compileSubroutineBody() {
-        openBlock(Kind.SUBROUTINE_BODY);
-        //{
-        handleTokenXml();
-
-        advance();
+        final SubroutineBodyTree subroutineBodyTree = new SubroutineBodyTree(nodes);
+        // var declarations on top
         while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
-            compileVarDec();
+            nodes.add(compileVarDec());
             advance();
         }
 
-        compileStatements();
-
-        //}
         advance();
-        handleTokenXml();
-        closeBlock(Kind.SUBROUTINE_BODY);
+        nodes.addAll(compileStatements());
+
+        advance(); // skip
+
+        return subroutineBodyTree;
     }
 
-    public void compileParameterList() {
-        boolean declareVariables = kindNesting.peek() == Kind.SUBROUTINE_DEC;
-        openBlock(Kind.PARAMETER_LIST);
-        compileParameterListNested(declareVariables);
-        closeBlock(Kind.PARAMETER_LIST);
-    }
-
-    private void compileParameterListNested() {
-        compileParameterListNested(false);
-    }
-
-    private void compileParameterListNested(boolean declareVariables) {
-        if (!isType(tokenizer)) {
-            return;
-        }
-
-        if (declareVariables) {
-            declarationKind = edu.nadn2tetris.table.Kind.ARG;
-            declarationType = getType(tokenizer);
-        }
-
-        handleTokenXml();
-
-        advance();
-        handleTokenXml();
-
-        advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
-            if (declareVariables) {
-                declarationKind = null;
-                declarationType = null;
+    public List<ParameterTree> compileParameterList() {
+        final List<ParameterTree> parameterTrees = new ArrayList<>();
+        while (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
+            advance(); // ( or ,
+            ParameterTree parameterTree = new ParameterTree();
+            parameterTree.type = getType(tokenizer);
+            if (parameterTree.type == Type.CLASS) {
+                parameterTree.className = tokenizer.identifier();
             }
-            return;
+
+            advance();
+            parameterTree.name = tokenizer.identifier();
+            advance();
+
+            parameterTrees.add(parameterTree);
         }
 
-        //,
-        handleTokenXml();
-
-        advance();
-        compileParameterListNested(declareVariables);
-
-        if (declareVariables) {
-            declarationKind = null;
-            declarationType = null;
-        }
+        return parameterTrees;
     }
 
     private static boolean isType(JackTokenizer tokenizer) {
         if (tokenizer.tokenType() == TokenType.KEYWORD) {
-            return tokenizer.keyword() == Keyword.INT
-                    || tokenizer.keyword() == Keyword.CHAR
-                    || tokenizer.keyword() == Keyword.BOOLEAN;
+            return tokenizer.keyword() == Keyword.INT || tokenizer.keyword() == Keyword.CHAR || tokenizer.keyword() == Keyword.BOOLEAN;
         }
 
         return tokenizer.tokenType() == TokenType.IDENTIFIER;
     }
 
-    private static String getType(JackTokenizer tokenizer) {
+    private static Type getType(JackTokenizer tokenizer) {
         if (tokenizer.tokenType() == TokenType.KEYWORD) {
-            return tokenizer.keyword().name().toLowerCase();
+            return switch (tokenizer.keyword()) {
+                case INT -> Type.INTEGER;
+                case CHAR -> Type.CHAR;
+                case BOOLEAN -> Type.BOOLEAN;
+                case VOID -> Type.VOID;
+                default -> throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+            };
         }
 
-        return tokenizer.identifier();
+        return Type.CLASS;
     }
 
-    public void compileVarDec() {
-        openBlock(Kind.VAR_DEC);
-        compileVarDec(false);
-        closeBlock(Kind.VAR_DEC);
+    public VarDeclarationTree compileVarDec() {
+        advance(); // skip var
+
+        final Type varType = getType(tokenizer);
+        final ArrayList<String> names = new ArrayList<>();
+        VarDeclarationTree varDeclarationTree = new VarDeclarationTree(names, varType);
+        if (varType == Type.CLASS) {
+            varDeclarationTree.classNameType = tokenizer.identifier();
+        }
+
+        advance();
+        names.addAll(getVarNamesList());
+
+        return varDeclarationTree;
     }
 
-    private void compileVarDec(boolean listDeclaration) {
-        if (!listDeclaration) {
-            declarationKind = edu.nadn2tetris.table.Kind.VAR;
-            handleTokenXml();
+    private List<String> getVarNamesList() {
+        if (tokenizer.tokenType() != TokenType.IDENTIFIER) {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+        }
 
+        final List<String> varNames = new ArrayList<>();
+        varNames.add(tokenizer.identifier());
+        advance();
+        while (tokenizer.symbol() != ';') {
+            advance(); // skip ,
+            varNames.add(tokenizer.identifier());
             advance();
-            handleTokenXml();
-            declarationType = getType(tokenizer);
+        }
 
+        return varNames;
+    }
+
+    public List<StatementTree> compileStatements() {
+        final List<StatementTree> statementTrees = new ArrayList<>();
+        while (!isNotStatement()) {
+            statementTrees.add(compileStatement());
             advance();
         }
+        tokenizer.rollback();
 
-        handleTokenXml();
-
-        advance();
-        if (tokenizer.symbol() == ';') {
-            handleTokenXml();
-            declarationKind = null;
-            declarationType = null;
-            return;
-        }
-
-        handleTokenXml(); //,
-
-        advance();
-        compileVarDec(true);
-        if (!listDeclaration) {
-            declarationKind = null;
-            declarationType = null;
-        }
+        return statementTrees;
     }
 
-    public void compileStatements() {
-        openBlock(Kind.STATEMENTS);
-        compileStatementsNested();
-        closeBlock(Kind.STATEMENTS);
-    }
-
-    private void compileStatementsNested() {
-        if (isNotStatement()) {
-            return;
-        }
-
-        compileStatement();
-
-        advance();
-        if (tokenizer.tokenType() != TokenType.KEYWORD || isNotStatement()) {
-            return;
-        }
-
-        compileStatementsNested();
-    }
-
-    private void compileStatement() {
-        switch (tokenizer.keyword()) {
+    private StatementTree compileStatement() {
+        return switch (tokenizer.keyword()) {
             case LET -> compileLet();
             case IF -> compileIf();
             case WHILE -> compileWhile();
             case DO -> compileDo();
             case RETURN -> compileReturn();
             default -> throw new IllegalStateException("Unsupported type " + tokenizer.keyword());
-        }
+        };
     }
 
-    public void compileLet() {
-        openBlock(Kind.LET_STATEMENT);
-        handleTokenXml();
+    public LetStatementTree compileLet() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.LET) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
+
+        advance(); // skip let
+        final LetStatementTree letStatementTree = new LetStatementTree();
 
         advance();
-        handleTokenXml();
+        final String varName = tokenizer.identifier();
 
         advance();
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
-            handleTokenXml();
-            advance();
-            compileExpression();
+            advance(); // skip [
 
-            advance();
-            handleTokenXml();
 
-            // =
-            advance();
+            letStatementTree.arraySyntaxTree = new ArraySyntaxTree(varName, compileExpression());
+
+            advance(); // skip ]
         }
 
-        // =
-        handleTokenXml();
+        advance(); // skip =
+        letStatementTree.assigment = compileExpression();
+        advance(); // skip ;
 
-        advance();
-        compileExpression();
-
-        advance();
-        handleTokenXml();
-        closeBlock(Kind.LET_STATEMENT);
+        return letStatementTree;
     }
 
-    public void compileIf() {
-        openBlock(Kind.IF_STATEMENT);
-        handleTokenXml();
-
-        advance();
-        compileConditionalStatements();
-        if (!tokenizer.hasMoreTokens()) {
-            closeBlock(Kind.IF_STATEMENT);
-            return;
+    public IfStatementTree compileIf() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.IF) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
         }
 
-        advance();
+        advance(); // skip if
+        advance(); // skip (
+
+        IfStatementTree ifStatementTree = new IfStatementTree();
+        ifStatementTree.condition = compileExpression();
+
+        advance(); // skip )
+        advance(); // skip {
+        ifStatementTree.ifBody = compileStatements();
+        advance(); // skip }
+
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
-            closeBlock(Kind.IF_STATEMENT);
-            return;
+            tokenizer.rollback();
+            return ifStatementTree;
         }
 
-        handleTokenXml();
+        advance(); // skip else
+        advance(); // skip {
+        ifStatementTree.elseBody = compileStatements();
+        advance(); // skip }
 
-        advance();
-        handleTokenXml();
-
-        advance();
-        compileStatements();
-
-        advance();
-        handleTokenXml();
-        closeBlock(Kind.IF_STATEMENT);
+        return ifStatementTree;
     }
 
-    public void compileWhile() {
-        openBlock(Kind.WHILE_STATEMENT);
-        handleTokenXml();
-        advance();
+    public WhileStatementTree compileWhile() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.WHILE) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        compileConditionalStatements();
-        closeBlock(Kind.WHILE_STATEMENT);
+        final WhileStatementTree whileStatementTree = new WhileStatementTree();
+        advance(); // skip while
+        advance(); // skip (
+        whileStatementTree.condition = compileExpression();
+        advance(); // skip )
+        advance(); // skip {
+
+        whileStatementTree.body = compileStatements();
+        advance(); // skip }
+
+        return whileStatementTree;
     }
 
-    private void compileConditionalStatements() {
-        handleTokenXml();
+    public DoStatementTree compileDo() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.DO) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        advance();
-        compileExpression();
+        advance(); // skip DO
+        final DoStatementTree doStatementTree = new DoStatementTree();
+        doStatementTree.subroutineCallTree = compileSubroutineCall();
+        advance(); // skip ;
 
-        advance();
-        handleTokenXml();
-
-        // {
-        advance();
-        handleTokenXml();
-
-        advance();
-        compileStatements();
-
-        advance();
-
-        handleTokenXml();
+        return doStatementTree;
     }
 
-    public void compileDo() {
-        openBlock(Kind.DO_STATEMENT);
-        handleTokenXml();
+    public ReturnStatementTree compileReturn() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.RETURN) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        advance();
-        compileSubroutineCall();
-        closeBlock(Kind.DO_STATEMENT);
-    }
-
-    public void compileReturn() {
-        openBlock(Kind.RETURN_STATEMENT);
-        handleTokenXml();
-
-        advance();
+        advance(); // skip return
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            handleTokenXml();
-            return;
+            return new ReturnStatementTree();
         }
 
-        compileExpression();
-        advance();
-        handleTokenXml();
+        final ReturnStatementTree returnStatementTree = new ReturnStatementTree();
+        returnStatementTree.expression = compileExpression();
+
+        return returnStatementTree;
     }
 
     public ExpressionTree compileExpression() {
@@ -514,17 +427,17 @@ public final class CompilationEngine implements Closeable {
     }
 
     private BinaryOpTree.Op convert(char ch) {
-       return switch (ch) {
-           case '+' -> BinaryOpTree.Op.ADD;
-           case '-' -> BinaryOpTree.Op.SUB;
-           case '*' -> BinaryOpTree.Op.MUL;
-           case '/' -> BinaryOpTree.Op.DIV;
-           case '&' -> BinaryOpTree.Op.AND;
-           case '|' -> BinaryOpTree.Op.OR;
-           case '<' -> BinaryOpTree.Op.LS;
-           case '>' -> BinaryOpTree.Op.GT;
-           case '=' -> BinaryOpTree.Op.EQ;
-           default -> throw new IllegalStateException("Unexpected token: " + ch);
+        return switch (ch) {
+            case '+' -> BinaryOpTree.Op.ADD;
+            case '-' -> BinaryOpTree.Op.SUB;
+            case '*' -> BinaryOpTree.Op.MUL;
+            case '/' -> BinaryOpTree.Op.DIV;
+            case '&' -> BinaryOpTree.Op.AND;
+            case '|' -> BinaryOpTree.Op.OR;
+            case '<' -> BinaryOpTree.Op.LS;
+            case '>' -> BinaryOpTree.Op.GT;
+            case '=' -> BinaryOpTree.Op.EQ;
+            default -> throw new IllegalStateException("Unexpected token: " + ch);
         };
     }
 
@@ -533,15 +446,7 @@ public final class CompilationEngine implements Closeable {
     }
 
     private static boolean isOp(char op) {
-        return op == '+'
-                || op == '-'
-                || op == '*'
-                || op == '/'
-                || op == '&'
-                || op == '|'
-                || op == '<'
-                || op == '>'
-                || op == '=';
+        return op == '+' || op == '-' || op == '*' || op == '/' || op == '&' || op == '|' || op == '<' || op == '>' || op == '=';
     }
 
     private AbstractSyntaxTree compileTermIdentifier() {
@@ -584,52 +489,13 @@ public final class CompilationEngine implements Closeable {
         return new IdentifierTree(identifier);
     }
 
-    private void compileSubroutineCall() {
-        handleTokenXml();
-
-        advance();
-        if (tokenizer.symbol() == '(') {
-            handleTokenXml();
-
-            advance();
-            compileExpressionList(new ArrayList<>());
-
-            advance();
-            handleTokenXml();
+    private SubroutineCallTree compileSubroutineCall() {
+        final AbstractSyntaxTree abstractSyntaxTree = compileTermIdentifier();
+        if (!(abstractSyntaxTree instanceof SubroutineCallTree)) {
+            throw new IllegalStateException("SubroutineCallTree expected");
         }
 
-        //dot or ;
-        advance();
-        handleTokenXml();
-        if (tokenizer.symbol() == ';') {
-            return;
-        }
-
-        advance();
-        compileSubroutineCallAfterDot();
-    }
-
-    private void compileSubroutineCallAfterDot(boolean writeLineEnd) {
-        handleTokenXml();
-
-        advance();
-        handleTokenXml();
-
-        advance();
-        compileExpressionList(new ArrayList<>());
-
-        // )
-        advance();
-        handleTokenXml();
-
-        if (writeLineEnd) {
-            advance();
-            handleTokenXml();
-        }
-    }
-
-    private void compileSubroutineCallAfterDot() {
-        compileSubroutineCallAfterDot(true);
+        return (SubroutineCallTree) abstractSyntaxTree;
     }
 
     public List<ExpressionTree> compileExpressionList(List<ExpressionTree> expressionTreeList) {
@@ -656,207 +522,18 @@ public final class CompilationEngine implements Closeable {
         tokenizer.advance();
     }
 
-    private void handleTokenXml() {
-        switch (tokenizer.tokenType()) {
-            case KEYWORD -> appendXml(wrapKeyword(tokenizer.keyword()));
-            case IDENTIFIER -> handleIdentifier();
-            case SYMBOL -> appendXml(wrapSymbol(tokenizer.symbol()));
-            case INT_CONST -> appendXml(wrapIntConst(tokenizer.intVal()));
-            case STRING_CONST -> appendXml(wrapStringConst(tokenizer.stringVal()));
-            default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
-        }
-    }
-
-    private void handleIdentifier() {
-        final String identifier = tokenizer.identifier();
-
-        String identifierXml = "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
-        if (!flags.contains(Flag.EXTENDED_IDENTIFIER)) {
-            appendXml(identifierXml);
-            return;
-        }
-
-        final boolean declaration = declarationKind != null && declarationType != null;
-        if (declaration) {
-            defineIdentifier(identifier);
-        }
-
-        final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
-        if (identifierInfo == null) {
-            appendXml(identifierXml);
-            return;
-        }
-
-        final String category = declaration
-                ? identifierInfo.kind.name().toLowerCase()
-                : identifierInfo.kind == edu.nadn2tetris.table.Kind.STATIC || identifierInfo.kind == edu.nadn2tetris.table.Kind.FIELD
-                ? edu.nadn2tetris.table.Kind.CLASS.name().toLowerCase()
-                : edu.nadn2tetris.table.Kind.SUBROUTINE.name().toLowerCase();
-
-        identifierXml = "%s<identifier category=\"%s\" index=\"%d\" declaration=\"%s\"> %s </identifier>\n".formatted(
-                TAB_SYMBOL.repeat(nestingLevel),
-                category,
-                indexOf(identifier),
-                declaration,
-                identifier
-        );
-
-        appendXml(identifierXml);
-    }
-
     private boolean isNotStatement() {
         if (tokenizer.tokenType() != TokenType.KEYWORD) {
             return true;
         }
 
         final Keyword keyword = tokenizer.keyword();
-        return keyword != Keyword.LET
-                && keyword != Keyword.IF
-                && keyword != Keyword.WHILE
-                && keyword != Keyword.DO
-                && keyword != Keyword.RETURN;
-    }
-
-    private void openBlock(Kind kind) {
-        appendXml("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), kind.tagName));
-        kindNesting.add(kind);
-    }
-
-    private void closeBlock(Kind kind) {
-        if (kind == Kind.SUBROUTINE_DEC || kind == Kind.CLASS) {
-            procedureSymbolTable.reset();
-        }
-
-        if (kind == Kind.EXPRESSION && flags.contains(Flag.GENERATE_CODE)) {
-            generateExpression();
-        }
-
-        kindNesting.pop();
-        appendXml("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), kind.tagName));
-    }
-
-    //TODO: на данный момент это не будет работать для term op term op term...
-    // может строить нормальное AST??
-    private void generateExpression() {
-        if (expression.size() == 1) { // term
-            String identifier = expression.pop();
-            final IdentifierInfo identifierInfo = getIdentifierInfo(identifier);
-            final Segment seg = identifierInfo.kind == edu.nadn2tetris.table.Kind.CLASS ? Segment.THIS : Segment.LOCAL;
-
-            vmWriter.writePush(seg, indexOf(identifier));
-        } else { // term op term
-            while (!expression.isEmpty()) {
-                String identifier2 = expression.pop();
-                Command command = Command.parse(expression.pop().charAt(0));
-                pushIdentifier(expression.pop());
-                pushIdentifier(identifier2);
-                vmWriter.writeArithmetic(command);
-            }
-        }
-    }
-
-    private void pushIdentifier(String name) {
-        final IdentifierInfo identifierInfo = getIdentifierInfo(name);
-        final Segment seg = identifierInfo.kind == edu.nadn2tetris.table.Kind.CLASS ? Segment.THIS : Segment.LOCAL;
-        vmWriter.writePush(seg, indexOf(name));
-    }
-
-    private String wrapKeyword(Keyword keyword) {
-        return "%s<keyword> %s </keyword>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), keyword.name().toLowerCase());
-    }
-
-    private short indexOf(String name) {
-        IdentifierInfo identifierInfo = procedureSymbolTable.getIdentifierInfo(name);
-        if (identifierInfo != null) {
-            return procedureSymbolTable.indexOf(name);
-        }
-
-        identifierInfo = classSymbolTable.getIdentifierInfo(name);
-        if (identifierInfo == null) {
-            throw new IllegalStateException("Undefined identifier: " + name);
-        }
-
-        return classSymbolTable.indexOf(name);
-    }
-
-    private void defineIdentifier(String name) {
-        if (declarationKind == null || declarationType == null) {
-            throw new IllegalStateException("Invalid declaration");
-        }
-
-        final SymbolTable table = declarationKind == edu.nadn2tetris.table.Kind.FIELD || declarationKind == edu.nadn2tetris.table.Kind.STATIC
-                ? classSymbolTable
-                : procedureSymbolTable;
-
-        table.define(name, declarationType, declarationKind);
-    }
-
-    private IdentifierInfo getIdentifierInfo(String name) {
-        IdentifierInfo identifier = procedureSymbolTable.getIdentifierInfo(name);
-        if (identifier == null) {
-            identifier = classSymbolTable.getIdentifierInfo(name);
-        }
-
-        return identifier;
-    }
-
-    private String wrapSymbol(char symbol) {
-        return "%s<symbol> %s </symbol>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), symbol);
-    }
-
-    private String wrapIntConst(short intConst) {
-        return "%s<integerConstant> %d </integerConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), intConst);
-    }
-
-    private String wrapStringConst(String stringConst) {
-        return "%s<stringConstant> %s </stringConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
-    }
-
-    private void appendXml(String string) {
-        if (flags.contains(Flag.GENERATE_CODE)) {
-            return;
-        }
-
-        xml.append(string);
+        return keyword != Keyword.LET && keyword != Keyword.IF && keyword != Keyword.WHILE && keyword != Keyword.DO && keyword != Keyword.RETURN;
     }
 
     @Override
     public void close() throws IOException {
         this.tokenizer.close();
-
-        if (this.bufferedWriter != null) {
-            this.bufferedWriter.append(xml).close();
-        }
-
-        if (this.vmWriter != null) {
-            this.vmWriter.close();
-        }
-    }
-
-    private enum Kind {
-        CLASS("class"),
-        CLASS_VAR_DEC("classVarDec"),
-        SUBROUTINE_DEC("subroutineDec"),
-        SUBROUTINE_BODY("subroutineBody"),
-        PARAMETER_LIST("parameterList"),
-        VAR_DEC("varDec"),
-        STATEMENTS("statements"),
-        LET_STATEMENT("letStatement"),
-        IF_STATEMENT("ifStatement"),
-        WHILE_STATEMENT("whileStatement"),
-        DO_STATEMENT("doStatement"),
-        RETURN_STATEMENT("returnStatement"),
-        EXPRESSION("expression"),
-        EXPRESSION_LIST("expressionList"),
-        STRING_CONSTANT("stringConstant"),
-        INTEGER_CONSTANT("integerConstant"),
-        TERM("term");
-
-        public final String tagName;
-
-        Kind(String tagName) {
-            this.tagName = tagName;
-        }
     }
 }
 
