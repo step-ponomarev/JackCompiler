@@ -17,7 +17,6 @@ public final class JackTokenizer implements Closeable {
     private short intVal;
     private String identifier;
     private String stringVal;
-    private boolean useBufferedToken = false;
 
     private final TokenIterator tokens;
 
@@ -26,15 +25,10 @@ public final class JackTokenizer implements Closeable {
     }
 
     public boolean hasMoreTokens() {
-        return tokens.hasNext() || useBufferedToken;
+        return tokens.hasNext();
     }
 
     public void advance() {
-        if (useBufferedToken) {
-            useBufferedToken = false;
-            return;
-        }
-
         if (!this.hasMoreTokens()) {
             throw new IllegalStateException("End of file!");
         }
@@ -53,10 +47,6 @@ public final class JackTokenizer implements Closeable {
             case STRING_CONST -> this.stringVal = currToken.substring(1, currToken.length() - 1);
             default -> throw new IllegalArgumentException("Unsupported currToken type: " + tokenType);
         }
-    }
-
-    public void rollback() {
-        useBufferedToken = true;
     }
 
     public TokenType tokenType() {
