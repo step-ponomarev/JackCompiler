@@ -12,7 +12,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.JackAnalyzer;

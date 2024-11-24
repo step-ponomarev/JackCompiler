@@ -21,14 +21,13 @@ import edu.nadn2tetris.ast.subroutine.SubroutineBodyTree;
 import edu.nadn2tetris.ast.subroutine.SubroutineDeclarationTree;
 import edu.nadn2tetris.ast.Type;
 import edu.nadn2tetris.ast.term.ArraySyntaxTree;
-import edu.nadn2tetris.ast.term.BinaryOpTree;
+import edu.nadn2tetris.ast.term.OperatorTree;
 import edu.nadn2tetris.ast.term.IdentifierTree;
 import edu.nadn2tetris.ast.term.IntegerConstantTree;
 import edu.nadn2tetris.ast.term.KeywordConstantTree;
 import edu.nadn2tetris.ast.term.ParameterTree;
 import edu.nadn2tetris.ast.term.StringConstantTree;
-import edu.nadn2tetris.ast.term.SubroutineCallTree;
-import edu.nadn2tetris.ast.term.UnaryOpTree;
+import edu.nadn2tetris.ast.subroutine.SubroutineCallTree;
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
@@ -114,9 +113,12 @@ public final class CompilationEngine implements Closeable {
             subroutineDeclarationTree.returnClassName = tokenizer.identifier();
         }
 
+        subroutineDeclarationTree.subroutineType = subroutineType;
+
         advance();
         subroutineDeclarationTree.name = tokenizer.identifier();
 
+        advance();
         subroutineDeclarationTree.parameterList = compileParameterList();
 
         advance(); // skip )
@@ -137,7 +139,6 @@ public final class CompilationEngine implements Closeable {
         }
 
         final ArrayList<AbstractSyntaxTree> nodes = new ArrayList<>();
-
         final SubroutineBodyTree subroutineBodyTree = new SubroutineBodyTree(nodes);
         // var declarations on top
         while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
@@ -145,18 +146,17 @@ public final class CompilationEngine implements Closeable {
             advance();
         }
 
-        advance();
         nodes.addAll(compileStatements());
 
-        advance(); // skip
+        advance(); // to }
 
         return subroutineBodyTree;
     }
 
     public List<ParameterTree> compileParameterList() {
         final List<ParameterTree> parameterTrees = new ArrayList<>();
+        advance(); // ( or ,
         while (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
-            advance(); // ( or ,
             ParameterTree parameterTree = new ParameterTree();
             parameterTree.type = getType(tokenizer);
             if (parameterTree.type == Type.CLASS) {
@@ -171,14 +171,6 @@ public final class CompilationEngine implements Closeable {
         }
 
         return parameterTrees;
-    }
-
-    private static boolean isType(JackTokenizer tokenizer) {
-        if (tokenizer.tokenType() == TokenType.KEYWORD) {
-            return tokenizer.keyword() == Keyword.INT || tokenizer.keyword() == Keyword.CHAR || tokenizer.keyword() == Keyword.BOOLEAN;
-        }
-
-        return tokenizer.tokenType() == TokenType.IDENTIFIER;
     }
 
     private static Type getType(JackTokenizer tokenizer) {
@@ -196,6 +188,9 @@ public final class CompilationEngine implements Closeable {
     }
 
     public VarDeclarationTree compileVarDec() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.VAR) {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+        }
         advance(); // skip var
 
         final Type varType = getType(tokenizer);
@@ -257,24 +252,21 @@ public final class CompilationEngine implements Closeable {
 
         advance(); // skip let
         final LetStatementTree letStatementTree = new LetStatementTree();
-
-        advance();
-        final String varName = tokenizer.identifier();
+        letStatementTree.identifierName = tokenizer.identifier();
 
         advance();
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
             advance(); // skip [
+            letStatementTree.arraySyntaxTree = new ArraySyntaxTree(letStatementTree.identifierName, compileExpression());
 
-
-            letStatementTree.arraySyntaxTree = new ArraySyntaxTree(varName, compileExpression());
-
+            advance(); // next
             advance(); // skip ]
         }
 
         advance(); // skip =
         letStatementTree.assigment = compileExpression();
-        advance(); // skip ;
+        advance(); // next
 
         return letStatementTree;
     }
@@ -290,9 +282,11 @@ public final class CompilationEngine implements Closeable {
         IfStatementTree ifStatementTree = new IfStatementTree();
         ifStatementTree.condition = compileExpression();
 
+        advance(); // to )
         advance(); // skip )
         advance(); // skip {
         ifStatementTree.ifBody = compileStatements();
+        advance(); // to }
         advance(); // skip }
 
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
@@ -317,6 +311,7 @@ public final class CompilationEngine implements Closeable {
         advance(); // skip while
         advance(); // skip (
         whileStatementTree.condition = compileExpression();
+        advance(); // next
         advance(); // skip )
         advance(); // skip {
 
@@ -334,7 +329,7 @@ public final class CompilationEngine implements Closeable {
         advance(); // skip DO
         final DoStatementTree doStatementTree = new DoStatementTree();
         doStatementTree.subroutineCallTree = compileSubroutineCall();
-        advance(); // skip ;
+        advance();
 
         return doStatementTree;
     }
@@ -351,6 +346,7 @@ public final class CompilationEngine implements Closeable {
 
         final ReturnStatementTree returnStatementTree = new ReturnStatementTree();
         returnStatementTree.expression = compileExpression();
+        advance(); // to ;
 
         return returnStatementTree;
     }
@@ -364,17 +360,25 @@ public final class CompilationEngine implements Closeable {
 
     private ExpressionTree compileExpression(ExpressionTree expressionTree) {
         final AbstractSyntaxTree term = compileTerm();
-        if (!tokenizer.hasMoreTokens()) {
-            expressionTree.curr = term;
+
+        // unaryOp term
+        advance();
+        if (term instanceof OperatorTree) {
+            final ExpressionTree curr = new ExpressionTree();
+            curr.curr = term;
+            curr.left = compileExpression();
+
+            expressionTree.curr = curr;
             return expressionTree;
         }
 
-        advance();
         if (tokenizer.tokenType() != TokenType.SYMBOL || !isOp(tokenizer.symbol())) {
             expressionTree.curr = term;
+            tokenizer.rollback();
             return expressionTree;
         }
 
+        // term op term
         expressionTree.left = new ExpressionTree(term);
         expressionTree.curr = compileTerm(); // op
         expressionTree.right = new ExpressionTree();
@@ -413,48 +417,51 @@ public final class CompilationEngine implements Closeable {
 
     private AbstractSyntaxTree compileTermSymbol() {
         if (isOp(tokenizer.symbol())) {
-            return new BinaryOpTree(convert(tokenizer.symbol()));
+            return new OperatorTree(convert(tokenizer.symbol()));
         }
 
-        if (isUnaryOp(tokenizer.symbol())) {
-            final UnaryOpTree.Op op = tokenizer.symbol() == '~' ? UnaryOpTree.Op.NOT : UnaryOpTree.Op.NEG;
-
+        // ( expression )
+        if (tokenizer.symbol() == '(') {
             advance();
-            return new UnaryOpTree(op);
+            ExpressionTree expressionTree = compileExpression();
+            advance();
+            return expressionTree;
         }
 
         return compileExpression();
     }
 
-    private BinaryOpTree.Op convert(char ch) {
+    private OperatorTree.Op convert(char ch) {
         return switch (ch) {
-            case '+' -> BinaryOpTree.Op.ADD;
-            case '-' -> BinaryOpTree.Op.SUB;
-            case '*' -> BinaryOpTree.Op.MUL;
-            case '/' -> BinaryOpTree.Op.DIV;
-            case '&' -> BinaryOpTree.Op.AND;
-            case '|' -> BinaryOpTree.Op.OR;
-            case '<' -> BinaryOpTree.Op.LS;
-            case '>' -> BinaryOpTree.Op.GT;
-            case '=' -> BinaryOpTree.Op.EQ;
+            case '+' -> OperatorTree.Op.ADD;
+            case '-' -> OperatorTree.Op.SUB;
+            case '*' -> OperatorTree.Op.MUL;
+            case '/' -> OperatorTree.Op.DIV;
+            case '&' -> OperatorTree.Op.AND;
+            case '|' -> OperatorTree.Op.OR;
+            case '<' -> OperatorTree.Op.LS;
+            case '>' -> OperatorTree.Op.GT;
+            case '=' -> OperatorTree.Op.EQ;
+            case '~' -> OperatorTree.Op.NOT;
             default -> throw new IllegalStateException("Unexpected token: " + ch);
         };
     }
 
-    private static boolean isUnaryOp(char op) {
-        return op == '-' || op == '~';
-    }
-
     private static boolean isOp(char op) {
-        return op == '+' || op == '-' || op == '*' || op == '/' || op == '&' || op == '|' || op == '<' || op == '>' || op == '=';
+        return op == '+' || op == '-' || op == '*' || op == '/' || op == '&' || op == '|' || op == '<' || op == '>' || op == '=' || op == '~';
     }
 
     private AbstractSyntaxTree compileTermIdentifier() {
+        if (tokenizer.tokenType() != TokenType.IDENTIFIER) {
+            throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
+        }
+
         final String identifier = tokenizer.identifier();
 
         advance();
         final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ';';
         if (varName) {
+            tokenizer.rollback();
             return new IdentifierTree(identifier);
         }
 
@@ -467,9 +474,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         if (tokenizer.symbol() == '(') {
-            advance(); // (
             final List<ExpressionTree> expressionList = compileExpressionList(new ArrayList<>());
-            advance(); // )
 
             return new SubroutineCallTree(identifier, expressionList);
         }
@@ -499,10 +504,11 @@ public final class CompilationEngine implements Closeable {
     }
 
     public List<ExpressionTree> compileExpressionList(List<ExpressionTree> expressionTreeList) {
-        if (!tokenizer.hasMoreTokens()) {
-            return Collections.emptyList();
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ')') {
+            throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
         }
 
+        advance(); // skip (
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ')') {
             return Collections.emptyList();
         }
@@ -510,9 +516,10 @@ public final class CompilationEngine implements Closeable {
         expressionTreeList.add(compileExpression());
 
         advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+        while (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+            advance(); // skip ,
+            expressionTreeList.add(compileExpression());
             advance();
-            return compileExpressionList(expressionTreeList);
         }
 
         return expressionTreeList;

@@ -3,10 +3,10 @@ package edu.nadn2tetris.ast.term;
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
 import edu.nadn2tetris.ast.NodeKind;
 
-public final class BinaryOpTree extends AbstractSyntaxTree {
+public final class OperatorTree extends AbstractSyntaxTree {
     private final Op op;
 
-    public BinaryOpTree(Op op) {
+    public OperatorTree(Op op) {
         super(NodeKind.OP);
         this.op = op;
     }
@@ -20,6 +20,7 @@ public final class BinaryOpTree extends AbstractSyntaxTree {
         OR,
         LS,
         GT,
-        EQ
+        EQ,
+        NOT
     }
 }

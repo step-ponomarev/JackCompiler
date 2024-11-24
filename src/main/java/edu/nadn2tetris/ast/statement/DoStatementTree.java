@@ -1,7 +1,7 @@
 package edu.nadn2tetris.ast.statement;
 
 import edu.nadn2tetris.ast.NodeKind;
-import edu.nadn2tetris.ast.term.SubroutineCallTree;
+import edu.nadn2tetris.ast.subroutine.SubroutineCallTree;
 
 public final class DoStatementTree extends StatementTree {
     public SubroutineCallTree subroutineCallTree;
