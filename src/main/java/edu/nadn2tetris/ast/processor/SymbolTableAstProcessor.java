@@ -27,13 +27,18 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
 
     @Override
     public FileSymbolTable process(AbstractSyntaxTree root) {
+        fillSymbolTree(root);
+        return new FileSymbolTable(classSymbolTable, subroutineSymbolTables);
+    }
+
+    private void fillSymbolTree(AbstractSyntaxTree root) {
         switch (root.getNodeKind()) {
             case CLASS -> {
                 final ClassTree classTree = (ClassTree) root;
                 final List<AbstractSyntaxTree> list = classTree.blocks.stream()
                         .filter(node -> DECLARATION_KINDS.contains(node.getNodeKind())).toList();
                 for (AbstractSyntaxTree block : list) {
-                    process(block);
+                    fillSymbolTree(block);
                 }
             }
             case CLASS_VAR_DECLARATION -> {
@@ -54,14 +59,14 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
                 }
                 subroutineSymbolTables.put(this.currSubroutineName, createdSymbolTable);
 
-                process(subroutineDeclarationTree.subroutineBodyTree);
+                fillSymbolTree(subroutineDeclarationTree.subroutineBodyTree);
             }
             case SUBROUTINE_BODY -> {
                 final SubroutineBodyTree bodyTree = (SubroutineBodyTree) root;
                 if (bodyTree.nodes != null && !bodyTree.nodes.isEmpty()) {
                     bodyTree.nodes.stream()
                             .filter(e -> e.getNodeKind() == NodeKind.VAR_DECLARATION)
-                            .forEach(this::process);
+                            .forEach(this::fillSymbolTree);
                 }
             }
             case VAR_DECLARATION -> {
@@ -72,8 +77,6 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             }
             default -> throw new IllegalStateException("Unsupported node kind: " + root.getNodeKind());
         }
-
-        return new FileSymbolTable(classSymbolTable, subroutineSymbolTables);
     }
 
     private static void process(SymbolTable table, ADeclarationTree declarationTree, Kind kind) {
