@@ -9,8 +9,8 @@ import java.util.List;
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
 import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.ast.term.ATermSyntaxTree;
-import edu.nadn2tetris.ast.variables.ClassVarDeclarationTree;
-import edu.nadn2tetris.ast.variables.VarDeclarationTree;
+import edu.nadn2tetris.ast.declaration.ClassVarDeclarationTree;
+import edu.nadn2tetris.ast.declaration.VarDeclarationTree;
 import edu.nadn2tetris.ast.statement.DoStatementTree;
 import edu.nadn2tetris.ast.statement.IfStatementTree;
 import edu.nadn2tetris.ast.statement.LetStatementTree;
@@ -32,6 +32,9 @@ import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 
+/**
+ * Creates AST tree
+ */
 public final class CompilationEngine implements Closeable {
     private final JackTokenizer tokenizer;
     private boolean hasBufferedToken;
@@ -40,7 +43,7 @@ public final class CompilationEngine implements Closeable {
         this.tokenizer = tokenizer;
     }
 
-    public ClassTree compileClass() {
+    public AbstractSyntaxTree compileClass() {
         advance(); // to class
 
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.CLASS) {
@@ -94,7 +97,7 @@ public final class CompilationEngine implements Closeable {
         return keyword == Keyword.STATIC || keyword == Keyword.FIELD;
     }
 
-    public ClassVarDeclarationTree compileClassVarDec() {
+    private ClassVarDeclarationTree compileClassVarDec() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || !isClassVarDec(tokenizer.keyword())) {
             throwUnexpectedToken(tokenizer);
         }
@@ -114,7 +117,7 @@ public final class CompilationEngine implements Closeable {
         return classVarDeclarationTree;
     }
 
-    public SubroutineDeclarationTree compileSubroutine() {
+    private SubroutineDeclarationTree compileSubroutine() {
         if (!isSubroutineDec(tokenizer.keyword())) {
             throwUnexpectedToken(tokenizer);
         }
@@ -148,7 +151,7 @@ public final class CompilationEngine implements Closeable {
                 : SubroutineDeclarationTree.SubroutineType.FUNCTION;
     }
 
-    public SubroutineBodyTree compileSubroutineBody() {
+    private SubroutineBodyTree compileSubroutineBody() {
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '{') {
             throwUnexpectedToken(tokenizer);
         }
@@ -173,7 +176,7 @@ public final class CompilationEngine implements Closeable {
         return subroutineBodyTree;
     }
 
-    public List<ParameterTree> compileParameterList() {
+    private List<ParameterTree> compileParameterList() {
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '(') {
             throwUnexpectedToken(tokenizer);
         }
@@ -191,7 +194,7 @@ public final class CompilationEngine implements Closeable {
             ParameterTree parameterTree = new ParameterTree();
             parameterTree.type = getType(tokenizer);
             if (parameterTree.type == Type.CLASS) {
-                parameterTree.className = tokenizer.identifier();
+                parameterTree.classNameType = tokenizer.identifier();
             }
 
             advance();
@@ -204,21 +207,22 @@ public final class CompilationEngine implements Closeable {
         return parameterTrees;
     }
 
-    public VarDeclarationTree compileVarDec() {
+    private VarDeclarationTree compileVarDec() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.VAR) {
             throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
         }
         advance(); // skip var
 
-        final Type varType = getType(tokenizer);
-        final ArrayList<String> names = new ArrayList<>();
-        VarDeclarationTree varDeclarationTree = new VarDeclarationTree(names, varType);
-        if (varType == Type.CLASS) {
+        final VarDeclarationTree varDeclarationTree = new VarDeclarationTree();
+        varDeclarationTree.type = getType(tokenizer);
+        varDeclarationTree.varNames = new ArrayList<>();
+
+        if (varDeclarationTree.type == Type.CLASS) {
             varDeclarationTree.classNameType = tokenizer.identifier();
         }
 
         advance();
-        names.addAll(getVarNamesList());
+        varDeclarationTree.varNames.addAll(getVarNamesList());
 
         return varDeclarationTree;
     }
@@ -240,7 +244,7 @@ public final class CompilationEngine implements Closeable {
         return varNames;
     }
 
-    public List<StatementTree> compileStatements() {
+    private List<StatementTree> compileStatements() {
         // empty statements block
         if (!isStatement(tokenizer)) {
             bufferToken();
@@ -272,7 +276,7 @@ public final class CompilationEngine implements Closeable {
         };
     }
 
-    public LetStatementTree compileLet() {
+    private LetStatementTree compileLet() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.LET) {
             throwUnexpectedToken(tokenizer);
         }
@@ -298,7 +302,7 @@ public final class CompilationEngine implements Closeable {
         return letStatementTree;
     }
 
-    public IfStatementTree compileIf() {
+    private IfStatementTree compileIf() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.IF) {
             throwUnexpectedToken(tokenizer);
         }
@@ -329,7 +333,7 @@ public final class CompilationEngine implements Closeable {
         return ifStatementTree;
     }
 
-    public WhileStatementTree compileWhile() {
+    private WhileStatementTree compileWhile() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.WHILE) {
             throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
         }
@@ -348,7 +352,7 @@ public final class CompilationEngine implements Closeable {
         return whileStatementTree;
     }
 
-    public DoStatementTree compileDo() {
+    private DoStatementTree compileDo() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.DO) {
             throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
         }
@@ -361,7 +365,7 @@ public final class CompilationEngine implements Closeable {
         return doStatementTree;
     }
 
-    public ReturnStatementTree compileReturn() {
+    private ReturnStatementTree compileReturn() {
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.RETURN) {
             throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
         }
@@ -378,7 +382,7 @@ public final class CompilationEngine implements Closeable {
         return returnStatementTree;
     }
 
-    public ATermSyntaxTree compileExpression() {
+    private ATermSyntaxTree compileExpression() {
         final ATermSyntaxTree term = compileTerm();
 
         advance(); // to next term
@@ -403,7 +407,7 @@ public final class CompilationEngine implements Closeable {
         return root;
     }
 
-    public ATermSyntaxTree compileTerm() {
+    private ATermSyntaxTree compileTerm() {
         final TokenType tokenType = tokenizer.tokenType();
         return switch (tokenType) {
             case IDENTIFIER -> compileTermIdentifier();
@@ -519,7 +523,7 @@ public final class CompilationEngine implements Closeable {
         return (SubroutineCallTree) abstractSyntaxTree;
     }
 
-    public List<ATermSyntaxTree> compileExpressionList() {
+    private List<ATermSyntaxTree> compileExpressionList() {
         if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ')') {
             throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
         }

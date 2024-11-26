@@ -5,9 +5,5 @@ public enum Kind {
     STATIC,
     FIELD,
     ARG,
-    VAR,
-
-    // usage
-    CLASS,
-    SUBROUTINE
+    VAR
 }
