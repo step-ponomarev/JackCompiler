@@ -46,14 +46,13 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
                 this.currSubroutineName = subroutineDeclarationTree.name;
+                final SymbolTable createdSymbolTable = new SymbolTable();
                 if (subroutineDeclarationTree.parameterList != null && !subroutineDeclarationTree.parameterList.isEmpty()) {
-                    final SymbolTable createdSymbolTable = new SymbolTable();
                     for (ParameterTree parameter : subroutineDeclarationTree.parameterList) {
                         createdSymbolTable.define(parameter.name, parameter.getType(), Kind.ARG);
                     }
-
-                    subroutineSymbolTables.put(this.currSubroutineName, createdSymbolTable);
                 }
+                subroutineSymbolTables.put(this.currSubroutineName, createdSymbolTable);
 
                 process(subroutineDeclarationTree.subroutineBodyTree);
             }
@@ -71,6 +70,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
                 }
                 process(subroutineSymbolTables.get(currSubroutineName), (VarDeclarationTree) root, Kind.VAR);
             }
+            default -> throw new IllegalStateException("Unsupported node kind: " + root.getNodeKind());
         }
 
         return new FileSymbolTable(classSymbolTable, subroutineSymbolTables);

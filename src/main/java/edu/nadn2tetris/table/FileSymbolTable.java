@@ -14,7 +14,7 @@ public final class FileSymbolTable {
     public IdentifierInfo get(String methodName, String identifier) {
         final SymbolTable table = subroutineSymbolTables.get(methodName);
         if (table == null) {
-            return classSymbolTable.getIdentifierInfo(identifier);
+            throw new IllegalStateException("Cannot find symbol table for " + methodName);
         }
 
         final IdentifierInfo identifierInfo = table.getIdentifierInfo(identifier);
