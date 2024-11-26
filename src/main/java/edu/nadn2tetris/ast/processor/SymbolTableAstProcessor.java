@@ -46,7 +46,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
                 this.currSubRoutine = subroutineDeclarationTree.name;
-                if (subroutineDeclarationTree.parameterList != null) {
+                if (subroutineDeclarationTree.parameterList != null && !subroutineDeclarationTree.parameterList.isEmpty()) {
                     final SymbolTable createdSymbolTable = new SymbolTable();
                     for (ParameterTree parameter : subroutineDeclarationTree.parameterList) {
                         createdSymbolTable.define(parameter.name, parameter.getType(), Kind.ARG);
@@ -59,7 +59,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             }
             case SUBROUTINE_BODY -> {
                 final SubroutineBodyTree bodyTree = (SubroutineBodyTree) root;
-                if (bodyTree.nodes != null) {
+                if (bodyTree.nodes != null && !bodyTree.nodes.isEmpty()) {
                     bodyTree.nodes.stream()
                             .filter(e -> e.getNodeKind() == NodeKind.VAR_DECLARATION)
                             .forEach(this::process);
