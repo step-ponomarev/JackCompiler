@@ -126,9 +126,9 @@ public final class CompilationEngine implements Closeable {
         subroutineDeclarationTree.subroutineType = getSubroutineDeclarationType(tokenizer.keyword());
 
         advance(); // skip constructor or method or function
-        subroutineDeclarationTree.returnType = getType(tokenizer);
-        if (subroutineDeclarationTree.returnType == Type.CLASS) {
-            subroutineDeclarationTree.returnClassName = tokenizer.identifier();
+        subroutineDeclarationTree.type = getType(tokenizer);
+        if (subroutineDeclarationTree.type == Type.CLASS) {
+            subroutineDeclarationTree.classNameType = tokenizer.identifier();
         }
 
         advance(); // skip type
