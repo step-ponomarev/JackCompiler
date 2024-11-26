@@ -23,7 +23,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
 
     private final SymbolTable classSymbolTable = new SymbolTable();
     private final Map<String, SymbolTable> subroutineSymbolTables = new HashMap<>();
-    private String currSubRoutine;
+    private String currSubroutineName;
 
     @Override
     public FileSymbolTable process(AbstractSyntaxTree root) {
@@ -45,14 +45,14 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             }
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
-                this.currSubRoutine = subroutineDeclarationTree.name;
+                this.currSubroutineName = subroutineDeclarationTree.name;
                 if (subroutineDeclarationTree.parameterList != null && !subroutineDeclarationTree.parameterList.isEmpty()) {
                     final SymbolTable createdSymbolTable = new SymbolTable();
                     for (ParameterTree parameter : subroutineDeclarationTree.parameterList) {
                         createdSymbolTable.define(parameter.name, parameter.getType(), Kind.ARG);
                     }
 
-                    subroutineSymbolTables.put(this.currSubRoutine, createdSymbolTable);
+                    subroutineSymbolTables.put(this.currSubroutineName, createdSymbolTable);
                 }
 
                 process(subroutineDeclarationTree.subroutineBodyTree);
@@ -66,10 +66,10 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
                 }
             }
             case VAR_DECLARATION -> {
-                if (currSubRoutine == null) {
+                if (currSubroutineName == null) {
                     throw new IllegalStateException("Current method not set");
                 }
-                process(subroutineSymbolTables.get(currSubRoutine), (VarDeclarationTree) root, Kind.VAR);
+                process(subroutineSymbolTables.get(currSubroutineName), (VarDeclarationTree) root, Kind.VAR);
             }
         }
 
