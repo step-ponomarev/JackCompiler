@@ -1,14 +1,12 @@
 package edu.nadn2tetris.ast.term;
 
-import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.ExpressionTree;
 import edu.nadn2tetris.ast.NodeKind;
 
-public final class ArraySyntaxTree extends AbstractSyntaxTree {
+public final class ArraySyntaxTree extends ATermSyntaxTree {
     private final String identifierName;
-    private final ExpressionTree expressionTree;
+    private final ATermSyntaxTree expressionTree;
 
-    public ArraySyntaxTree(String identifierName, ExpressionTree expressionTree) {
+    public ArraySyntaxTree(String identifierName, ATermSyntaxTree expressionTree) {
         super(NodeKind.ARRAY);
         this.identifierName = identifierName;
         this.expressionTree = expressionTree;

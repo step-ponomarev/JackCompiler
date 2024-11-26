@@ -1,9 +1,8 @@
 package edu.nadn2tetris.ast.term;
 
-import edu.nadn2tetris.ast.AbstractSyntaxTree;
 import edu.nadn2tetris.ast.NodeKind;
 
-public final class OperatorTree extends AbstractSyntaxTree {
+public final class OperatorTree extends ATermSyntaxTree {
     private final Op op;
 
     public OperatorTree(Op op) {

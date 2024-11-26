@@ -6,7 +6,7 @@ import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
-import edu.nadn2tetris.ast.ExpressionTree;
+import edu.nadn2tetris.ast.term.ATermSyntaxTree;
 import edu.nadn2tetris.compiler.CompilationEngine;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 
@@ -20,7 +20,7 @@ public final class CompileAstTest {
 
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             CompilationEngine engine = new CompilationEngine(jackTokenizer);
-            ExpressionTree expressionTree = engine.compileExpression();
+            ATermSyntaxTree expressionTree = engine.compileExpression();
             System.out.println(expressionTree);
         } catch (IOException e) {
             throw new RuntimeException(e);
