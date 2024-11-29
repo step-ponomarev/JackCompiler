@@ -1,638 +1,606 @@
 package edu.nadn2tetris.compiler;
 
-import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
+import edu.nadn2tetris.ast.AbstractSyntaxTree;
+import edu.nadn2tetris.ast.ClassTree;
+import edu.nadn2tetris.ast.term.ATermSyntaxTree;
+import edu.nadn2tetris.ast.declaration.ClassVarDeclarationTree;
+import edu.nadn2tetris.ast.declaration.VarDeclarationTree;
+import edu.nadn2tetris.ast.statement.DoStatementTree;
+import edu.nadn2tetris.ast.statement.IfStatementTree;
+import edu.nadn2tetris.ast.statement.LetStatementTree;
+import edu.nadn2tetris.ast.statement.ReturnStatementTree;
+import edu.nadn2tetris.ast.statement.StatementTree;
+import edu.nadn2tetris.ast.statement.WhileStatementTree;
+import edu.nadn2tetris.ast.term.subroutine.SubroutineBodyTree;
+import edu.nadn2tetris.ast.term.subroutine.SubroutineDeclarationTree;
+import edu.nadn2tetris.ast.Type;
+import edu.nadn2tetris.ast.term.ArraySyntaxTree;
+import edu.nadn2tetris.ast.term.OperatorTree;
+import edu.nadn2tetris.ast.term.IdentifierTree;
+import edu.nadn2tetris.ast.term.IntegerConstantTree;
+import edu.nadn2tetris.ast.term.KeywordConstantTree;
+import edu.nadn2tetris.ast.term.ParameterTree;
+import edu.nadn2tetris.ast.term.StringConstantTree;
+import edu.nadn2tetris.ast.term.subroutine.SubroutineCallTree;
 import edu.nadn2tetris.common.Keyword;
 import edu.nadn2tetris.common.TokenType;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 
+/**
+ * Creates AST tree
+ */
 public final class CompilationEngine implements Closeable {
-    private static final String TAB_SYMBOL = "\s\s";
     private final JackTokenizer tokenizer;
-    private final BufferedWriter bufferedWriter;
+    private boolean hasBufferedToken;
 
-    private boolean tokenIsBuffered = false;
-    private int nestingLevel = 0;
-
-    public CompilationEngine(JackTokenizer tokenizer, OutputStream out) {
+    public CompilationEngine(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
-        this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(out));
     }
 
-    public void compileClass() {
-        advance();
-        openBlock(StatementType.CLASS);
+    public AbstractSyntaxTree compileClass() {
+        advance(); // to class
 
-        writeToken();
-        advance();
-        writeToken();
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.CLASS) {
+            throwUnexpectedToken(tokenizer);
+        }
+        advance(); // skip class
 
-        // {
-        advance();
-        writeToken();
+        final ClassTree classTree = new ClassTree();
+        classTree.className = tokenizer.identifier();
+        classTree.blocks = new ArrayList<>();
+        advance(); // skip className
 
-        advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
-            writeToken();
-            return;
+        advance(); // skip {
+        // empty class
+        while (tokenizer.hasMoreTokens()) {
+            if (!isClassBlock(tokenizer)) {
+                throwUnexpectedToken(tokenizer);
+            }
+
+            if (isClassVarDec(tokenizer.keyword())) {
+                classTree.blocks.add(compileClassVarDec());
+                advance();
+            } else if (isSubroutineDec(tokenizer.keyword())) {
+                classTree.blocks.add(compileSubroutine());
+                advance();
+            } else {
+                throwUnexpectedToken(tokenizer);
+            }
         }
 
-        while (tokenizer.tokenType() == TokenType.KEYWORD && isClassVarDec(tokenizer.keyword())) {
-            compileClassVarDec();
-            advance();
-        }
-
-        while (tokenizer.tokenType() == TokenType.KEYWORD && isSubroutineDec(tokenizer.keyword())) {
-            compileSubroutine();
-            advance();
-        }
-
-        // }
-        writeToken();
-        closeBlock(StatementType.CLASS);
+        return classTree;
     }
 
-    private boolean isSubroutineDec(Keyword keyword) {
-        return keyword == Keyword.CONSTRUCTOR
-                || keyword == Keyword.FUNCTION
-                || keyword == Keyword.METHOD;
+    private static boolean isClassBlock(JackTokenizer tokenizer) {
+        if (tokenizer.tokenType() != TokenType.KEYWORD) {
+            return false;
+        }
+
+        if (isSubroutineDec(tokenizer.keyword())) {
+            return true;
+        }
+
+        return isClassVarDec(tokenizer.keyword());
     }
 
-    private boolean isClassVarDec(Keyword keyword) {
+    private static boolean isSubroutineDec(Keyword keyword) {
+        return keyword == Keyword.CONSTRUCTOR || keyword == Keyword.FUNCTION || keyword == Keyword.METHOD;
+    }
+
+    private static boolean isClassVarDec(Keyword keyword) {
         return keyword == Keyword.STATIC || keyword == Keyword.FIELD;
     }
 
-    public void compileClassVarDec() {
-        openBlock(StatementType.CLASS_VAR_DEC);
-        writeToken();
-
-        advance();
-        writeToken();
-
-        advance();
-        writeToken();
-
-        if (!tokenizer.hasMoreTokens()) {
-            closeBlock(StatementType.CLASS_VAR_DEC);
-            return;
+    private ClassVarDeclarationTree compileClassVarDec() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || !isClassVarDec(tokenizer.keyword())) {
+            throwUnexpectedToken(tokenizer);
         }
 
-        advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
-            writeToken();
-            closeBlock(StatementType.CLASS_VAR_DEC);
-            return;
+        final ClassVarDeclarationTree classVarDeclarationTree = new ClassVarDeclarationTree();
+        classVarDeclarationTree.declarationType = tokenizer.keyword() == Keyword.STATIC ? ClassVarDeclarationTree.DeclarationType.STATIC : ClassVarDeclarationTree.DeclarationType.FIELD;
+
+        advance(); // skip field or static
+        classVarDeclarationTree.type = getType(tokenizer);
+        if (classVarDeclarationTree.type == Type.CLASS) {
+            classVarDeclarationTree.classNameType = tokenizer.identifier();
         }
 
-        //,
-        writeToken();
+        advance(); //skip type
+        classVarDeclarationTree.varNames = getVarNamesList();
 
-        advance();
-        compileVarDec(true);
-        closeBlock(StatementType.CLASS_VAR_DEC);
+        return classVarDeclarationTree;
     }
 
-    public void compileSubroutine() {
-        openBlock(StatementType.SUBROUTINE_DEC);
-        writeToken();
+    private SubroutineDeclarationTree compileSubroutine() {
+        if (!isSubroutineDec(tokenizer.keyword())) {
+            throwUnexpectedToken(tokenizer);
+        }
 
-        advance();
-        writeToken();
+        final SubroutineDeclarationTree subroutineDeclarationTree = new SubroutineDeclarationTree();
+        subroutineDeclarationTree.subroutineType = getSubroutineDeclarationType(tokenizer.keyword());
 
-        advance();
-        writeToken();
+        advance(); // skip constructor or method or function
+        subroutineDeclarationTree.type = getType(tokenizer);
+        if (subroutineDeclarationTree.type == Type.CLASS) {
+            subroutineDeclarationTree.classNameType = tokenizer.identifier();
+        }
 
-        //(
-        advance();
-        writeToken();
+        advance(); // skip type
+        subroutineDeclarationTree.name = tokenizer.identifier();
 
-        advance();
-        compileParameterList();
+        advance(); // skip name
+        subroutineDeclarationTree.parameterList = compileParameterList();
 
-        //)
-        advance();
-        writeToken();
+        advance(); // skip )
+        subroutineDeclarationTree.subroutineBodyTree = compileSubroutineBody();
 
-        advance();
-        compileSubroutineBody();
-        closeBlock(StatementType.SUBROUTINE_DEC);
+        return subroutineDeclarationTree;
     }
 
-    public void compileSubroutineBody() {
-        openBlock(StatementType.SUBROUTINE_BODY);
-        //{
-        writeToken();
+    private static SubroutineDeclarationTree.SubroutineType getSubroutineDeclarationType(Keyword keyword) {
+        return keyword == Keyword.CONSTRUCTOR
+                ? SubroutineDeclarationTree.SubroutineType.CONSTRUCTOR
+                : keyword == Keyword.METHOD
+                ? SubroutineDeclarationTree.SubroutineType.METHOD
+                : SubroutineDeclarationTree.SubroutineType.FUNCTION;
+    }
 
-        advance();
+    private SubroutineBodyTree compileSubroutineBody() {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '{') {
+            throwUnexpectedToken(tokenizer);
+        }
+
+        advance(); // skip {
+        // empty method
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '}') {
+            return new SubroutineBodyTree(new ArrayList<>());
+        }
+
+        final SubroutineBodyTree subroutineBodyTree = new SubroutineBodyTree();
+        subroutineBodyTree.nodes = new ArrayList<>();
+        // var declarations on top
         while (tokenizer.tokenType() == TokenType.KEYWORD && tokenizer.keyword() == Keyword.VAR) {
-            compileVarDec();
+            subroutineBodyTree.nodes.add(compileVarDec());
             advance();
         }
 
-        compileStatements();
+        subroutineBodyTree.nodes.addAll(compileStatements());
+        advance(); // to }
 
-        //}
-        advance();
-        writeToken();
-        closeBlock(StatementType.SUBROUTINE_BODY);
+        return subroutineBodyTree;
     }
 
-    public void compileParameterList() {
-        openBlock(StatementType.PARAMETER_LIST);
-        compileParameterListNested();
-        closeBlock(StatementType.PARAMETER_LIST);
-    }
-
-    private void compileParameterListNested() {
-        if (!isType(tokenizer)) {
-            return;
+    private List<ParameterTree> compileParameterList() {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != '(') {
+            throwUnexpectedToken(tokenizer);
         }
 
-        writeToken();
-
-        advance();
-        writeToken();
-
-        advance();
-        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ',') {
-            return;
+        final List<ParameterTree> parameterTrees = new ArrayList<>();
+        advance(); // (
+        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ')') {
+            return Collections.emptyList();
+        } else {
+            bufferToken();
         }
 
-        //,
-        writeToken();
-
-        advance();
-        compileParameterListNested();
-    }
-
-    private static boolean isType(JackTokenizer tokenizer) {
-        if (tokenizer.tokenType() == TokenType.KEYWORD) {
-            return tokenizer.keyword() == Keyword.INT
-                    || tokenizer.keyword() == Keyword.CHAR
-                    || tokenizer.keyword() == Keyword.BOOLEAN;
-        }
-
-        return tokenizer.tokenType() == TokenType.IDENTIFIER;
-    }
-
-    public void compileVarDec() {
-        openBlock(StatementType.VAR_DEC);
-        compileVarDec(false);
-        closeBlock(StatementType.VAR_DEC);
-    }
-
-    private void compileVarDec(boolean list) {
-        if (!list) {
-            writeToken();
+        while (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() != ')') {
+            advance(); // skip ( or ,
+            ParameterTree parameterTree = new ParameterTree();
+            parameterTree.type = getType(tokenizer);
+            if (parameterTree.type == Type.CLASS) {
+                parameterTree.classNameType = tokenizer.identifier();
+            }
 
             advance();
-            writeToken();
+            parameterTree.name = tokenizer.identifier();
+            advance();
 
+            parameterTrees.add(parameterTree);
+        }
+
+        return parameterTrees;
+    }
+
+    private VarDeclarationTree compileVarDec() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.VAR) {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+        }
+        advance(); // skip var
+
+        final VarDeclarationTree varDeclarationTree = new VarDeclarationTree();
+        varDeclarationTree.type = getType(tokenizer);
+        varDeclarationTree.varNames = new ArrayList<>();
+
+        if (varDeclarationTree.type == Type.CLASS) {
+            varDeclarationTree.classNameType = tokenizer.identifier();
+        }
+
+        advance();
+        varDeclarationTree.varNames.addAll(getVarNamesList());
+
+        return varDeclarationTree;
+    }
+
+    private List<String> getVarNamesList() {
+        if (tokenizer.tokenType() != TokenType.IDENTIFIER) {
+            throw new IllegalStateException("Unexpected token: " + tokenizer.tokenType());
+        }
+
+        final List<String> varNames = new ArrayList<>();
+        varNames.add(tokenizer.identifier());
+        advance();
+        while (tokenizer.symbol() != ';') {
+            advance(); // skip ,
+            varNames.add(tokenizer.identifier());
             advance();
         }
 
-        writeToken();
-
-        advance();
-        if (tokenizer.symbol() == ';') {
-            writeToken();
-            return;
-        }
-
-        writeToken();
-
-        advance();
-        compileVarDec(true);
+        return varNames;
     }
 
-    public void compileStatements() {
-        openBlock(StatementType.STATEMENTS);
-        compileStatementsNested();
-        closeBlock(StatementType.STATEMENTS);
-    }
-
-    private void compileStatementsNested() {
-        if (isNotStatement()) {
-            return;
+    private List<StatementTree> compileStatements() {
+        // empty statements block
+        if (!isStatement(tokenizer)) {
+            bufferToken();
+            return Collections.emptyList();
         }
 
-        compileStatement();
-
-        advance();
-        if (tokenizer.tokenType() != TokenType.KEYWORD || isNotStatement()) {
-            return;
+        final List<StatementTree> statementTrees = new ArrayList<>();
+        while (isStatement(tokenizer)) {
+            statementTrees.add(compileStatement());
+            advance();
         }
+        bufferToken();
 
-        compileStatementsNested();
+        return statementTrees;
     }
 
-    private void compileStatement() {
-        switch (tokenizer.keyword()) {
+    private StatementTree compileStatement() {
+        if (!isStatement(tokenizer)) {
+            throwUnexpectedToken(tokenizer);
+        }
+
+        return switch (tokenizer.keyword()) {
             case LET -> compileLet();
             case IF -> compileIf();
             case WHILE -> compileWhile();
             case DO -> compileDo();
             case RETURN -> compileReturn();
             default -> throw new IllegalStateException("Unsupported type " + tokenizer.keyword());
-        }
+        };
     }
 
-    public void compileLet() {
-        openBlock(StatementType.LET_STATEMENT);
-        writeToken();
+    private LetStatementTree compileLet() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.LET) {
+            throwUnexpectedToken(tokenizer);
+        }
 
-        advance();
-        writeToken();
+        advance(); // skip let
+        final LetStatementTree letStatementTree = new LetStatementTree();
+        letStatementTree.identifierName = tokenizer.identifier();
 
-        advance();
+        advance(); // skip identifier
         final boolean array = tokenizer.symbol() == '[';
         if (array) {
-            writeToken();
-            advance();
-            compileExpression();
+            advance(); // skip [
+            letStatementTree.arraySyntaxTree = new ArraySyntaxTree(letStatementTree.identifierName, compileExpression());
 
-            advance();
-            writeToken();
-
-            // =
-            advance();
+            advance(); // next
+            advance(); // skip ]
         }
 
-        // =
-        writeToken();
+        advance(); // skip =
+        letStatementTree.assigment = compileExpression();
+        advance(); // next
 
-        advance();
-        compileExpression();
-
-        advance();
-        writeToken();
-        closeBlock(StatementType.LET_STATEMENT);
+        return letStatementTree;
     }
 
-    public void compileIf() {
-        openBlock(StatementType.IF_STATEMENT);
-        writeToken();
-
-        advance();
-        compileConditionalStatements();
-        if (!tokenizer.hasMoreTokens()) {
-            closeBlock(StatementType.IF_STATEMENT);
-            return;
+    private IfStatementTree compileIf() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.IF) {
+            throwUnexpectedToken(tokenizer);
         }
 
-        advance();
+        advance(); // skip if
+        advance(); // skip (
+
+        IfStatementTree ifStatementTree = new IfStatementTree();
+        ifStatementTree.condition = compileExpression();
+
+        advance(); // to )
+        advance(); // skip )
+        advance(); // skip {
+        ifStatementTree.ifBody = compileStatements();
+        advance(); // to }
+        advance(); // skip }
+
         if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.ELSE) {
-            closeBlock(StatementType.IF_STATEMENT);
-            return;
+            bufferToken();
+            return ifStatementTree;
         }
 
-        writeToken();
+        advance(); // skip else
+        advance(); // skip {
+        ifStatementTree.elseBody = compileStatements();
+        advance(); // skip }
 
-        advance();
-        writeToken();
-
-        advance();
-        compileStatements();
-
-        advance();
-        writeToken();
-        closeBlock(StatementType.IF_STATEMENT);
+        return ifStatementTree;
     }
 
-    public void compileWhile() {
-        openBlock(StatementType.WHILE_STATEMENT);
-        writeToken();
-        advance();
+    private WhileStatementTree compileWhile() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.WHILE) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        compileConditionalStatements();
-        closeBlock(StatementType.WHILE_STATEMENT);
+        final WhileStatementTree whileStatementTree = new WhileStatementTree();
+        advance(); // skip while
+        advance(); // skip (
+        whileStatementTree.condition = compileExpression();
+        advance(); // next
+        advance(); // skip )
+        advance(); // skip {
+
+        whileStatementTree.body = compileStatements();
+        advance(); // skip }
+
+        return whileStatementTree;
     }
 
-    private void compileConditionalStatements() {
-        writeToken();
+    private DoStatementTree compileDo() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.DO) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        advance();
-        compileExpression();
-
-        advance();
-        writeToken();
-
-        // {
-        advance();
-        writeToken();
-
-        advance();
-        compileStatements();
-
+        advance(); // skip DO
+        final DoStatementTree doStatementTree = new DoStatementTree();
+        doStatementTree.subroutineCallTree = compileSubroutineCall();
         advance();
 
-        writeToken();
+        return doStatementTree;
     }
 
-    public void compileDo() {
-        openBlock(StatementType.DO_STATEMENT);
-        writeToken();
+    private ReturnStatementTree compileReturn() {
+        if (tokenizer.tokenType() != TokenType.KEYWORD || tokenizer.keyword() != Keyword.RETURN) {
+            throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+        }
 
-        advance();
-        compileSubroutineCall();
-        closeBlock(StatementType.DO_STATEMENT);
-    }
-
-    public void compileReturn() {
-        openBlock(StatementType.RETURN_STATEMENT);
-        writeToken();
-
-        advance();
+        advance(); // skip return
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ';') {
-            writeToken();
-            closeBlock(StatementType.RETURN_STATEMENT);
-            return;
+            return new ReturnStatementTree();
         }
 
-        compileExpression();
-        advance();
-        writeToken();
-        closeBlock(StatementType.RETURN_STATEMENT);
+        final ReturnStatementTree returnStatementTree = new ReturnStatementTree();
+        returnStatementTree.expression = compileExpression();
+        advance(); // to ;
+
+        return returnStatementTree;
     }
 
-    public void compileExpression() {
-        openBlock(StatementType.EXPRESSION);
-        compileTerm();
-        if (!tokenizer.hasMoreTokens()) {
-            closeBlock(StatementType.EXPRESSION);
-            return;
+    private ATermSyntaxTree compileExpression() {
+        final ATermSyntaxTree term = compileTerm();
+
+        advance(); // to next term
+        // unaryOp term
+        if (term instanceof OperatorTree && term.right == null) {
+            term.left = compileTerm();
+            return term;
         }
+
+        // term
+        if (tokenizer.tokenType() != TokenType.SYMBOL || !isOp(tokenizer.symbol())) {
+            bufferToken();
+            return term;
+        }
+
+        final ATermSyntaxTree root = compileTerm();
+        root.left = term;
 
         advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && isOp(tokenizer.symbol())) {
-            writeToken();
-            advance();
-            compileTerm();
-        }
-        closeBlock(StatementType.EXPRESSION);
+        root.right = compileTerm();
+
+        return root;
     }
 
-    public void compileTerm() {
-        openBlock(StatementType.TERM);
+    private ATermSyntaxTree compileTerm() {
         final TokenType tokenType = tokenizer.tokenType();
-        switch (tokenType) {
+        return switch (tokenType) {
             case IDENTIFIER -> compileTermIdentifier();
             case SYMBOL -> compileTermSymbol();
-            default -> writeToken();
-        }
-        closeBlock(StatementType.TERM);
+            default -> compileTermConstant();
+        };
     }
 
-    private void compileTermSymbol() {
-        // unaryOp expression
-        if (isUnaryOp(tokenizer.symbol())) {
-            writeToken();
+    private ATermSyntaxTree compileTermConstant() {
+        return switch (tokenizer.tokenType()) {
+            case INT_CONST -> new IntegerConstantTree(tokenizer.intVal());
+            case STRING_CONST -> new StringConstantTree(tokenizer.stringVal());
+            case KEYWORD -> new KeywordConstantTree(convert(tokenizer.keyword()));
+            default -> throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
+        };
+    }
 
+    private static KeywordConstantTree.Keyword convert(Keyword keyword) {
+        return switch (keyword) {
+            case THIS -> KeywordConstantTree.Keyword.THIS;
+            case FALSE -> KeywordConstantTree.Keyword.FALSE;
+            case TRUE -> KeywordConstantTree.Keyword.TRUE;
+            case NULL -> KeywordConstantTree.Keyword.NULL;
+            default -> throw new IllegalArgumentException("Unsupported keyword " + keyword);
+        };
+    }
+
+    private ATermSyntaxTree compileTermSymbol() {
+        if (isOp(tokenizer.symbol())) {
+            return new OperatorTree(convert(tokenizer.symbol()));
+        }
+
+        // ( expression )
+        if (tokenizer.symbol() == '(') {
             advance();
-            compileTerm();
-            return;
+            ATermSyntaxTree expressionTree = compileExpression();
+            expressionTree.expression = true;
+            advance();
+            return expressionTree;
         }
 
-        // (expression)
-        writeToken();
-
-        advance();
-        compileExpression();
-
-        advance();
-        writeToken();
+        return compileExpression();
     }
 
-    private static boolean isUnaryOp(char op) {
-        return op == '-' || op == '~';
+    private OperatorTree.Op convert(char ch) {
+        return switch (ch) {
+            case '+' -> OperatorTree.Op.ADD;
+            case '-' -> OperatorTree.Op.SUB;
+            case '*' -> OperatorTree.Op.MUL;
+            case '/' -> OperatorTree.Op.DIV;
+            case '&' -> OperatorTree.Op.AND;
+            case '|' -> OperatorTree.Op.OR;
+            case '<' -> OperatorTree.Op.LS;
+            case '>' -> OperatorTree.Op.GT;
+            case '=' -> OperatorTree.Op.EQ;
+            case '~' -> OperatorTree.Op.NOT;
+            default -> throw new IllegalStateException("Unexpected token: " + ch);
+        };
     }
 
     private static boolean isOp(char op) {
-        return op == '+'
-                || op == '-'
-                || op == '*'
-                || op == '/'
-                || op == '&'
-                || op == '|'
-                || op == '<'
-                || op == '>'
-                || op == '=';
+        return op == '+' || op == '-' || op == '*' || op == '/' || op == '&' || op == '|' || op == '<' || op == '>' || op == '=' || op == '~';
     }
 
-    private void compileTermIdentifier() {
-        writeToken(); // identifier
+    private ATermSyntaxTree compileTermIdentifier() {
+        if (tokenizer.tokenType() != TokenType.IDENTIFIER) {
+            throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
+        }
+
+        final String identifier = tokenizer.identifier();
 
         advance();
-        final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL;
+        final boolean varName = tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ';';
         if (varName) {
-            return;
+            bufferToken();
+            return new IdentifierTree(identifier);
         }
 
-        boolean arrayOrExpressionInBrackets = tokenizer.symbol() == '[' || tokenizer.symbol() == '(';
-        if (arrayOrExpressionInBrackets) {
-            writeToken();
+        if (tokenizer.symbol() == '[') {
+            advance(); // [
+            final ArraySyntaxTree arraySyntaxTree = new ArraySyntaxTree(identifier, compileExpression());
+            advance(); // ]
 
-            advance();
-            compileExpression();
-
-            advance();
-            writeToken();
+            return arraySyntaxTree;
         }
 
-        advance();
-        final boolean subroutineCall = tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == '.';
-        if (!subroutineCall) {
-            return;
-        }
-
-        writeToken();
-
-        advance();
-        compileSubroutineCallAfterDot(false);
-    }
-
-    private void compileSubroutineCall() {
-        writeToken();
-
-        advance();
         if (tokenizer.symbol() == '(') {
-            writeToken();
+            final List<ATermSyntaxTree> expressionList = compileExpressionList();
+
+            return new SubroutineCallTree(identifier, expressionList);
+        }
+
+        if (tokenizer.symbol() == '.') {
+            String subroutineIdentifier = identifier + tokenizer.symbol();
+            advance();
+            subroutineIdentifier += tokenizer.identifier();
 
             advance();
-            compileExpressionList();
+            final List<ATermSyntaxTree> expressionTrees = compileExpressionList();
 
-            advance();
-            writeToken();
+            return new SubroutineCallTree(subroutineIdentifier, expressionTrees);
         }
 
-        //dot or ;
-        advance();
-        writeToken();
-        if (tokenizer.symbol() == ';') {
-            return;
+        bufferToken();
+        return new IdentifierTree(identifier);
+    }
+
+    private SubroutineCallTree compileSubroutineCall() {
+        final AbstractSyntaxTree abstractSyntaxTree = compileTermIdentifier();
+        if (!(abstractSyntaxTree instanceof SubroutineCallTree)) {
+            throw new IllegalStateException("SubroutineCallTree expected");
         }
 
-        advance();
-        compileSubroutineCallAfterDot();
+        return (SubroutineCallTree) abstractSyntaxTree;
     }
 
-    private void compileSubroutineCallAfterDot(boolean writeLineEnd) {
-        writeToken();
-
-        advance();
-        writeToken();
-
-        advance();
-        compileExpressionList();
-
-        // )
-        advance();
-        writeToken();
-
-        if (writeLineEnd) {
-            advance();
-            writeToken();
-        }
-    }
-
-    private void compileSubroutineCallAfterDot() {
-        compileSubroutineCallAfterDot(true);
-    }
-
-    public void compileExpressionList() {
-        openBlock(StatementType.EXPRESSION_LIST);
-        compileExpressionListNested();
-        closeBlock(StatementType.EXPRESSION_LIST);
-    }
-
-    private void compileExpressionListNested() {
-        if (!tokenizer.hasMoreTokens()) {
-            return;
+    private List<ATermSyntaxTree> compileExpressionList() {
+        if (tokenizer.tokenType() != TokenType.SYMBOL || tokenizer.symbol() == ')') {
+            throw new IllegalStateException("Unexpected token " + tokenizer.tokenType());
         }
 
+        advance(); // skip (
         if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ')') {
-            return;
+            return Collections.emptyList();
         }
 
-        compileExpression();
+        final List<ATermSyntaxTree> expressionTreeList = new ArrayList<>();
+        expressionTreeList.add(compileExpression());
 
-        advance();
-        if (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
-            writeToken();
-            advance();
-            compileExpressionListNested();
+        advance(); // to , or )
+        while (tokenizer.tokenType() == TokenType.SYMBOL && tokenizer.symbol() == ',') {
+            advance(); // skip ,
+            expressionTreeList.add(compileExpression());
+            advance(); // to , or )
         }
+
+        return expressionTreeList;
+    }
+
+    private static Type getType(JackTokenizer tokenizer) {
+        if (tokenizer.tokenType() == TokenType.KEYWORD) {
+            return switch (tokenizer.keyword()) {
+                case INT -> Type.INTEGER;
+                case CHAR -> Type.CHAR;
+                case BOOLEAN -> Type.BOOLEAN;
+                case VOID -> Type.VOID;
+                default -> throw new IllegalStateException("Unexpected keyword: " + tokenizer.keyword());
+            };
+        }
+
+        return Type.CLASS;
+    }
+
+    private void bufferToken() {
+        hasBufferedToken = true;
     }
 
     private void advance() {
-        if (tokenIsBuffered) {
+        if (hasBufferedToken) {
+            hasBufferedToken = false;
             return;
         }
 
         tokenizer.advance();
-        tokenIsBuffered = true;
     }
 
-    private void writeToken() {
-        try {
-            switch (tokenizer.tokenType()) {
-                case KEYWORD -> bufferedWriter.write(wrapKeyword(tokenizer.keyword()));
-                case IDENTIFIER -> bufferedWriter.write(wrapIdentifier(tokenizer.identifier()));
-                case SYMBOL -> bufferedWriter.write(wrapSymbol(tokenizer.symbol()));
-                case INT_CONST -> bufferedWriter.write(wrapIntConst(tokenizer.intVal()));
-                case STRING_CONST -> bufferedWriter.write(wrapStringConst(tokenizer.stringVal()));
-                default -> throw new IllegalStateException("Unsupported token type: " + tokenizer.tokenType());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        tokenIsBuffered = false;
-    }
-
-    private boolean isNotStatement() {
+    private static boolean isStatement(JackTokenizer tokenizer) {
         if (tokenizer.tokenType() != TokenType.KEYWORD) {
-            return true;
+            return false;
         }
 
-        final Keyword keyword = tokenizer.keyword();
-        return keyword != Keyword.LET
-                && keyword != Keyword.IF
-                && keyword != Keyword.WHILE
-                && keyword != Keyword.DO
-                && keyword != Keyword.RETURN;
+        return switch (tokenizer.keyword()) {
+            case LET, RETURN, IF, WHILE, DO -> true;
+            default -> false;
+        };
     }
 
-    private void openBlock(StatementType statementType) {
-        try {
-            bufferedWriter.write("%s<%s>\n".formatted(TAB_SYMBOL.repeat(nestingLevel++), statementType.tagName));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    private static void throwUnexpectedToken(JackTokenizer tokenizer) {
+        throw new IllegalStateException("Unexpected token: " + getCurrentToken(tokenizer));
     }
 
-    private void closeBlock(StatementType statementType) {
-        try {
-            bufferedWriter.write("%s</%s>\n".formatted(TAB_SYMBOL.repeat(--nestingLevel >= 0 ? nestingLevel : 0), statementType.tagName));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private String wrapKeyword(Keyword keyword) {
-        return "%s<keyword> %s </keyword>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), keyword.name().toLowerCase());
-    }
-
-    private String wrapIdentifier(String identifier) {
-        return "%s<identifier> %s </identifier>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), identifier);
-    }
-
-    private String wrapSymbol(char symbol) {
-        return "%s<symbol> %s </symbol>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), symbol);
-    }
-
-    private String wrapIntConst(short intConst) {
-        return "%s<integerConstant> %d </integerConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), intConst);
-    }
-
-    private String wrapStringConst(String stringConst) {
-        return "%s<stringConstant> %s </stringConstant>\n".formatted(TAB_SYMBOL.repeat(nestingLevel), stringConst);
+    private static String getCurrentToken(JackTokenizer tokenizer) {
+        return switch (tokenizer.tokenType()) {
+            case INT_CONST -> String.valueOf(tokenizer.intVal());
+            case SYMBOL -> String.valueOf(tokenizer.symbol());
+            case IDENTIFIER -> tokenizer.identifier();
+            case KEYWORD -> tokenizer.keyword().name();
+            case STRING_CONST -> tokenizer.stringVal();
+        };
     }
 
     @Override
     public void close() throws IOException {
         this.tokenizer.close();
-        this.bufferedWriter.close();
-    }
-
-    enum StatementType {
-        CLASS("class"),
-        CLASS_VAR_DEC("classVarDec"),
-        SUBROUTINE_DEC("subroutineDec"),
-        SUBROUTINE_BODY("subroutineBody"),
-        PARAMETER_LIST("parameterList"),
-        VAR_DEC("varDec"),
-        STATEMENTS("statements"),
-        LET_STATEMENT("letStatement"),
-        IF_STATEMENT("ifStatement"),
-        WHILE_STATEMENT("whileStatement"),
-        DO_STATEMENT("doStatement"),
-        RETURN_STATEMENT("returnStatement"),
-        EXPRESSION("expression"),
-        EXPRESSION_LIST("expressionList"),
-        STRING_CONSTANT("stringConstant"),
-        INTEGER_CONSTANT("integerConstant"),
-        TERM("term");
-
-        public final String tagName;
-
-        StatementType(String tagName) {
-            this.tagName = tagName;
-        }
     }
 }
-

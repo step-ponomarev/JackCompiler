@@ -1,23 +1,34 @@
 package edu.nadn2tetris;
 
+import java.io.BufferedWriter;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import edu.nadn2tetris.ast.AbstractSyntaxTree;
+import edu.nadn2tetris.ast.processor.XmlTreeAstProcessor;
 import edu.nadn2tetris.compiler.CompilationEngine;
+import edu.nadn2tetris.conf.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
+import edu.nadn2tetris.tokenizer.TokensCompiler;
 import edu.nadn2tetris.utils.FileUtils;
 
-public final class JackAnalyzer {
+public final class JackCompiler {
 
     public static void main(String[] args) {
         if (args.length < 2) {
             throw new IllegalArgumentException("Invalid arguments count: " + args.length);
+        }
+
+        final Set<Flag> flags = new HashSet<>();
+        for (short i = 2; i < args.length; i++) {
+            flags.add(Flag.parse(args[i]));
         }
 
         final Path outDir = Paths.get(args[1]);
@@ -27,7 +38,7 @@ public final class JackAnalyzer {
                 Files.createDirectory(outDir);
             }
 
-            compile(sourceFiles, outDir);
+            compile(sourceFiles, outDir, flags);
         } catch (IOException e) {
             try {
                 FileUtils.removeDir(outDir);
@@ -55,7 +66,7 @@ public final class JackAnalyzer {
         return sourceFiles;
     }
 
-    private static void compile(List<Path> srcFiles, Path outDir) throws IOException {
+    private static void compile(List<Path> srcFiles, Path outDir, Set<Flag> flags) throws IOException {
         if (srcFiles == null || srcFiles.isEmpty()) {
             return;
         }
@@ -65,14 +76,38 @@ public final class JackAnalyzer {
             Files.deleteIfExists(outFile);
             Files.createFile(outFile);
 
-            try (
-                    final CompilationEngine engine = new CompilationEngine(
-                            new JackTokenizer(new FileInputStream(src.toFile())),
-                            new FileOutputStream(outFile.toFile())
-                    )
-            ) {
-                engine.compileClass();
+            if (flags.contains(Flag.XML_MODE)) {
+                compileXml(src, outFile);
+                return;
             }
+
+            if (flags.contains(Flag.TOKENS)) {
+                compileTokens(src, outFile);
+                return;
+            }
+        }
+    }
+
+    private static void compileXml(Path src, Path outDir) throws IOException {
+        try (
+                final CompilationEngine engine = new CompilationEngine(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                );
+                final BufferedWriter writer = Files.newBufferedWriter(outDir);
+        ) {
+            final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
+            writer.write(new XmlTreeAstProcessor().process(abstractSyntaxTree));
+        }
+    }
+
+    private static void compileTokens(Path src, Path outDir) throws IOException {
+        try (
+                final TokensCompiler tokensCompiler = new TokensCompiler(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                );
+                final BufferedWriter writer = Files.newBufferedWriter(outDir);
+        ) {
+            writer.write(tokensCompiler.generate());
         }
     }
 }
