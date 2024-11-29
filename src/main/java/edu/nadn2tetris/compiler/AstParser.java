@@ -35,11 +35,11 @@ import edu.nadn2tetris.tokenizer.JackTokenizer;
 /**
  * Creates AST tree
  */
-public final class CompilationEngine implements Closeable {
+public final class AstParser implements Closeable {
     private final JackTokenizer tokenizer;
     private boolean hasBufferedToken;
 
-    public CompilationEngine(JackTokenizer tokenizer) {
+    public AstParser(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
     }
 

@@ -18,7 +18,7 @@ import edu.nadn2tetris.table.FileSymbolTable;
 import edu.nadn2tetris.table.Kind;
 import edu.nadn2tetris.table.SymbolTable;
 
-public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTable> {
+public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTable> {
     private static final Set<NodeKind> DECLARATION_KINDS = Set.of(NodeKind.CLASS_VAR_DECLARATION, NodeKind.SUBROUTINE_DECLARATION);
 
     private final SymbolTable classSymbolTable = new SymbolTable();
@@ -26,7 +26,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
     private String currSubroutineName;
 
     @Override
-    public FileSymbolTable process(AbstractSyntaxTree root) {
+    public FileSymbolTable generate(AbstractSyntaxTree root) {
         fillSymbolTree(root);
         return new FileSymbolTable(classSymbolTable, subroutineSymbolTables);
     }

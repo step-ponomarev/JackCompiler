@@ -28,14 +28,14 @@ import edu.nadn2tetris.ast.term.subroutine.SubroutineCallTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineDeclarationTree;
 import edu.nadn2tetris.common.Keyword;
 
-public final class XmlTreeAstProcessor implements AstProcessor<String> {
+public final class XmlTreeAstGenerator implements AstGenerator<String> {
     private final String TAB_SYMBOL = "\s\s";
 
     private final StringBuilder xml = new StringBuilder();
     private int nestingLevel = 0;
 
     @Override
-    public String process(AbstractSyntaxTree root) {
+    public String generate(AbstractSyntaxTree root) {
         handleSyntaxTree(root);
         return xml.toString();
     }

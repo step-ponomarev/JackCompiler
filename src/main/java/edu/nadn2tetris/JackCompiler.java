@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.processor.XmlTreeAstProcessor;
-import edu.nadn2tetris.compiler.CompilationEngine;
+import edu.nadn2tetris.ast.processor.XmlTreeAstGenerator;
+import edu.nadn2tetris.compiler.AstParser;
 import edu.nadn2tetris.conf.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.TokensCompiler;
@@ -90,13 +90,13 @@ public final class JackCompiler {
 
     private static void compileXml(Path src, Path outDir) throws IOException {
         try (
-                final CompilationEngine engine = new CompilationEngine(
+                final AstParser engine = new AstParser(
                         new JackTokenizer(new FileInputStream(src.toFile()))
                 );
                 final BufferedWriter writer = Files.newBufferedWriter(outDir);
         ) {
             final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
-            writer.write(new XmlTreeAstProcessor().process(abstractSyntaxTree));
+            writer.write(new XmlTreeAstGenerator().generate(abstractSyntaxTree));
         }
     }
 
