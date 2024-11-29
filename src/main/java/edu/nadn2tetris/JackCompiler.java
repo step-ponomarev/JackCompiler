@@ -12,14 +12,14 @@ import java.util.List;
 import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.processor.SymbolTableAstProcessor;
 import edu.nadn2tetris.ast.processor.XmlTreeAstProcessor;
 import edu.nadn2tetris.compiler.CompilationEngine;
-import edu.nadn2tetris.compiler.Flag;
+import edu.nadn2tetris.conf.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
+import edu.nadn2tetris.tokenizer.TokensCompiler;
 import edu.nadn2tetris.utils.FileUtils;
 
-public final class JackAnalyzer {
+public final class JackCompiler {
 
     public static void main(String[] args) {
         if (args.length < 2) {
@@ -76,18 +76,38 @@ public final class JackAnalyzer {
             Files.deleteIfExists(outFile);
             Files.createFile(outFile);
 
-            try (
-                    final CompilationEngine engine = new CompilationEngine(
-                            new JackTokenizer(new FileInputStream(src.toFile()))
-                    );
-                    final BufferedWriter writer = flags.contains(Flag.XML_MODE) ? Files.newBufferedWriter(outFile) : null
-            ) {
-                final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
-                if (flags.contains(Flag.XML_MODE)) {
-                    String process = new XmlTreeAstProcessor().process(abstractSyntaxTree);
-                    writer.write(process);
-                }
+            if (flags.contains(Flag.XML_MODE)) {
+                compileXml(src, outFile);
+                return;
             }
+
+            if (flags.contains(Flag.TOKENS)) {
+                compileTokens(src, outFile);
+                return;
+            }
+        }
+    }
+
+    private static void compileXml(Path src, Path outDir) throws IOException {
+        try (
+                final CompilationEngine engine = new CompilationEngine(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                );
+                final BufferedWriter writer = Files.newBufferedWriter(outDir);
+        ) {
+            final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
+            writer.write(new XmlTreeAstProcessor().process(abstractSyntaxTree));
+        }
+    }
+
+    private static void compileTokens(Path src, Path outDir) throws IOException {
+        try (
+                final TokensCompiler tokensCompiler = new TokensCompiler(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                );
+                final BufferedWriter writer = Files.newBufferedWriter(outDir);
+        ) {
+            writer.write(tokensCompiler.generate());
         }
     }
 }

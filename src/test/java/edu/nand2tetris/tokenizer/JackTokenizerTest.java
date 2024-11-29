@@ -1,148 +1,69 @@
 package edu.nand2tetris.tokenizer;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import edu.nadn2tetris.tokenizer.JackTokenizer;
-import edu.nadn2tetris.common.Keyword;
-import edu.nadn2tetris.common.TokenType;
+import edu.nadn2tetris.JackCompiler;
+import edu.nadn2tetris.utils.FileUtils;
+import edu.nand2tetris.utils.TestUtils;
 
 public final class JackTokenizerTest {
+    private static final Path RES_DIR = Paths.get("src", "test", "resources");
+    private final static Path OUT_DIR = RES_DIR.resolve("out");
+
+    @AfterEach
+    public void cleanUp() throws IOException {
+        FileUtils.removeDir(OUT_DIR);
+    }
+
     @Test
-    public void simpleTest() {
-        final String line = "var char c;";
+    public void testArray() throws IOException {
+        final Path srcFile = RES_DIR.resolve("src/ArrayTest/Main.jack");
+        final Path testFile = RES_DIR.resolve("test/tokenizer/ArrayTest/Main.xml");
 
-        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
+        JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--tkn"});
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.CHAR, jackTokenizer.keyword());
+        TestUtils.compareFiles(testFile.toFile(), OUT_DIR.resolve("Main.xml").toFile());
+    }
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
-            Assertions.assertEquals("c", jackTokenizer.identifier());
+    @Test
+    public void testExpressionLessSquare() throws IOException {
+        final Path srcFile = RES_DIR.resolve("src/ExpressionLessSquare");
+        final Path testFiles = RES_DIR.resolve("test/tokenizer/ExpressionLessSquare");
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals(';', jackTokenizer.symbol());
+        JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--tkn"});
 
-            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
+
+        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
+            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
+            TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
         }
     }
 
     @Test
-    public void simpleIfTest() {
-        final String line = """
-                if (x < 0) {
-                    x = 0;
-                }
-                """;
+    public void testSquare() throws IOException {
+        final Path srcFile = RES_DIR.resolve("src/Square");
+        final Path testFiles = RES_DIR.resolve("test/tokenizer/Square");
 
-        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.IF, jackTokenizer.keyword());
+        JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--tkn"});
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals('(', jackTokenizer.symbol());
+        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
-            Assertions.assertEquals("x", jackTokenizer.identifier());
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals('<', jackTokenizer.symbol());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.INT_CONST, jackTokenizer.tokenType());
-            Assertions.assertEquals(0, jackTokenizer.intVal());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals(')', jackTokenizer.symbol());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals('{', jackTokenizer.symbol());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.IDENTIFIER, jackTokenizer.tokenType());
-            Assertions.assertEquals("x", jackTokenizer.identifier());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals('=', jackTokenizer.symbol());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.INT_CONST, jackTokenizer.tokenType());
-            Assertions.assertEquals(0, jackTokenizer.intVal());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals(';', jackTokenizer.symbol());
-
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.SYMBOL, jackTokenizer.tokenType());
-            Assertions.assertEquals('}', jackTokenizer.symbol());
-
-            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    public void commentsBlockTest() {
-        final String line = """
-                /* smart comment
-                ablut how it works
-                */
-                   
-                var
-                // simple comment
-                var
-                                
-                /*** one line block */
-                var
-                """;
-
-        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
-            
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
-            
-            jackTokenizer.advance();
-            Assertions.assertEquals(TokenType.KEYWORD, jackTokenizer.tokenType());
-            Assertions.assertEquals(Keyword.VAR, jackTokenizer.keyword());
-
-            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    public void emptyLineTest() {
-        final String line = "   ";
-
-        try (final JackTokenizer jackTokenizer = new JackTokenizer(new ByteArrayInputStream(line.getBytes()))) {
-            Assertions.assertFalse(jackTokenizer.hasMoreTokens());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
+            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
+            TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
         }
     }
 }

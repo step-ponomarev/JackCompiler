@@ -1,9 +1,10 @@
-package edu.nadn2tetris.compiler;
+package edu.nadn2tetris.conf;
 
 import java.util.Objects;
 
 public enum Flag {
     XML_MODE("--xml"),
+    TOKENS("--tkn"),
     GENERATE_CODE("--code");
 
     private final String flag;
