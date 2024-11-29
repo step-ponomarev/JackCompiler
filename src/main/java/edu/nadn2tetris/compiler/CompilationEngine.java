@@ -444,6 +444,7 @@ public final class CompilationEngine implements Closeable {
         if (tokenizer.symbol() == '(') {
             advance();
             ATermSyntaxTree expressionTree = compileExpression();
+            expressionTree.expression = true;
             advance();
             return expressionTree;
         }

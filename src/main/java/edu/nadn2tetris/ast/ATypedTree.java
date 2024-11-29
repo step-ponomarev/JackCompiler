@@ -9,6 +9,6 @@ public abstract class ATypedTree extends AbstractSyntaxTree {
     }
 
     public String getType() {
-        return type == Type.CLASS ? classNameType : type.getCode();
+        return type == Type.CLASS ? classNameType : type.getCodeValue();
     }
 }

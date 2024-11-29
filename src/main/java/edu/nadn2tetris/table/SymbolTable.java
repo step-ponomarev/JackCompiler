@@ -15,7 +15,7 @@ public final class SymbolTable {
      * @param kind kind
      */
     public void define(String name, Type type, Kind kind) {
-        define(name, type.getCode(), kind);
+        define(name, type.getCodeValue(), kind);
     }
 
     public void define(String name, String type, Kind kind) {

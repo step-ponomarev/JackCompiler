@@ -7,8 +7,9 @@ import edu.nadn2tetris.ast.NodeKind;
 import edu.nadn2tetris.ast.term.ATermSyntaxTree;
 
 public final class SubroutineCallTree extends ATermSyntaxTree {
-    private final String identifierTree;
-    private final List<ATermSyntaxTree> argList;
+    // identifier or identifier.identifier
+    public final String identifierTree;
+    public final List<ATermSyntaxTree> argList;
 
     public SubroutineCallTree(String identifierTree, List<ATermSyntaxTree> argList) {
         super(NodeKind.SUBROUTINE_CALL);

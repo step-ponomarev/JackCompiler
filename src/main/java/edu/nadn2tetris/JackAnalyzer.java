@@ -1,5 +1,6 @@
 package edu.nadn2tetris;
 
+import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,7 +16,6 @@ import edu.nadn2tetris.ast.processor.SymbolTableAstProcessor;
 import edu.nadn2tetris.ast.processor.XmlTreeAstProcessor;
 import edu.nadn2tetris.compiler.CompilationEngine;
 import edu.nadn2tetris.compiler.Flag;
-import edu.nadn2tetris.table.FileSymbolTable;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.utils.FileUtils;
 
@@ -79,14 +79,14 @@ public final class JackAnalyzer {
             try (
                     final CompilationEngine engine = new CompilationEngine(
                             new JackTokenizer(new FileInputStream(src.toFile()))
-                    )
+                    );
+                    final BufferedWriter writer = flags.contains(Flag.XML_MODE) ? Files.newBufferedWriter(outFile) : null
             ) {
                 final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
-                final FileSymbolTable process = new SymbolTableAstProcessor().process(abstractSyntaxTree);
-                String process1 = new XmlTreeAstProcessor().process(abstractSyntaxTree);
-
-
-                System.out.println("here");
+                if (flags.contains(Flag.XML_MODE)) {
+                    String process = new XmlTreeAstProcessor().process(abstractSyntaxTree);
+                    writer.write(process);
+                }
             }
         }
     }

@@ -15,7 +15,7 @@ public enum Type {
         this.code = code;
     }
 
-    public String getCode() {
+    public String getCodeValue() {
         return code;
     }
 
