@@ -31,7 +31,7 @@ final class RowTokenizerIterator implements Iterator<String> {
 
         return switch (tokenType) {
             case INT -> getDigit();
-            case LETTER -> getIdentificator();
+            case LETTER -> getIdentifier();
             case SYMBOL -> getSymbol();
             case STRING_CONST -> getStringConst();
         };
@@ -56,14 +56,13 @@ final class RowTokenizerIterator implements Iterator<String> {
         return String.valueOf(row.charAt(i++));
     }
 
-    private String getIdentificator() {
+    private String getIdentifier() {
         final int start = i;
         int end = start + 1;
 
-        //TODO support _
         while (end < row.length()) {
             final char ch = row.charAt(end);
-            if (!Character.isLetterOrDigit(ch)) {
+            if (!Character.isLetterOrDigit(ch) && ch != '_') {
                 break;
             }
 
