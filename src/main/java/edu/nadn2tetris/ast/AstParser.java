@@ -1,4 +1,4 @@
-package edu.nadn2tetris.compiler;
+package edu.nadn2tetris.ast;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.ast.term.ATermSyntaxTree;
 import edu.nadn2tetris.ast.declaration.ClassVarDeclarationTree;
 import edu.nadn2tetris.ast.declaration.VarDeclarationTree;
@@ -19,7 +17,6 @@ import edu.nadn2tetris.ast.statement.StatementTree;
 import edu.nadn2tetris.ast.statement.WhileStatementTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineBodyTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineDeclarationTree;
-import edu.nadn2tetris.ast.Type;
 import edu.nadn2tetris.ast.term.ArraySyntaxTree;
 import edu.nadn2tetris.ast.term.OperatorTree;
 import edu.nadn2tetris.ast.term.IdentifierTree;

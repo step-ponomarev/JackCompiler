@@ -21,4 +21,8 @@ public final class FileSymbolTable {
 
         return identifierInfo == null ? classSymbolTable.getIdentifierInfo(identifier) : identifierInfo;
     }
+
+    public short getClassFieldsCount() {
+        return classSymbolTable.countOf(Kind.FIELD);
+    }
 }

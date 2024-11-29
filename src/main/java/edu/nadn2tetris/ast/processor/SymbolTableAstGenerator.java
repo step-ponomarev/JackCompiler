@@ -23,7 +23,13 @@ public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTab
 
     private final SymbolTable classSymbolTable = new SymbolTable();
     private final Map<String, SymbolTable> subroutineSymbolTables = new HashMap<>();
+
+    private final String className;
     private String currSubroutineName;
+
+    public SymbolTableAstGenerator(String className) {
+        this.className = className;
+    }
 
     @Override
     public FileSymbolTable generate(AbstractSyntaxTree root) {
@@ -51,7 +57,12 @@ public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTab
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
                 this.currSubroutineName = subroutineDeclarationTree.name;
+
                 final SymbolTable createdSymbolTable = new SymbolTable();
+                if (subroutineDeclarationTree.subroutineType == SubroutineDeclarationTree.SubroutineType.METHOD) {
+                    createdSymbolTable.define("this", className, Kind.ARG);
+                }
+
                 if (subroutineDeclarationTree.parameterList != null && !subroutineDeclarationTree.parameterList.isEmpty()) {
                     for (ParameterTree parameter : subroutineDeclarationTree.parameterList) {
                         createdSymbolTable.define(parameter.name, parameter.getType(), Kind.ARG);

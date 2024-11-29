@@ -13,7 +13,7 @@ import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
 import edu.nadn2tetris.ast.processor.XmlTreeAstGenerator;
-import edu.nadn2tetris.compiler.AstParser;
+import edu.nadn2tetris.ast.AstParser;
 import edu.nadn2tetris.conf.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.TokensCompiler;

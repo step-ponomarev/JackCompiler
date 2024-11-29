@@ -44,4 +44,13 @@ public final class SymbolTable {
     public IdentifierInfo getIdentifierInfo(String name) {
         return identifiers.get(name);
     }
+
+    public short countOf(Kind kind) {
+        Short i = kindIndex.get(kind);
+        if (i == null) {
+            return 0;
+        }
+
+        return (short) (i + 1);
+    }
 }
