@@ -10,7 +10,7 @@ public final class VMWriter implements Closeable {
 
     private static final String PUSH_TEMPLATE = "push %s %d\n";
     private static final String POP_TEMPLATE = "pop %s %d\n";
-    private static final String LABEL_TEMPLATE = "label %s";
+    private static final String LABEL_TEMPLATE = "label %s\n";
 
     public VMWriter(Writer writer) {
         if (writer == null) {

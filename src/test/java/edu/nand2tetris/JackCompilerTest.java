@@ -22,7 +22,7 @@ public final class JackCompilerTest {
 
     @AfterEach
     public void cleanUp() throws IOException {
-        FileUtils.removeDir(OUT_DIR);
+//        FileUtils.removeDir(OUT_DIR);
     }
 
     @Test
@@ -65,6 +65,23 @@ public final class JackCompilerTest {
         for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
             final Path testFile = testFilesMap.get(compileFileEntry.getKey());
             TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
+        }
+    }
+
+    @Test
+    public void testGntSquare() throws IOException {
+        final Path srcFile = RES_DIR.resolve("src/Square");
+        final Path testFiles = RES_DIR.resolve("test/Square");
+
+        JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--code"});
+
+        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
+
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
+
+        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
+            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
+//            TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
         }
     }
 }

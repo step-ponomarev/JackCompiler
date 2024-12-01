@@ -2,6 +2,7 @@ package edu.nadn2tetris;
 
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,12 +13,17 @@ import java.util.List;
 import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
+import edu.nadn2tetris.ast.ClassTree;
+import edu.nadn2tetris.ast.processor.ByteCodeAstGenerator;
+import edu.nadn2tetris.ast.processor.SymbolTableAstGenerator;
 import edu.nadn2tetris.ast.processor.XmlTreeAstGenerator;
 import edu.nadn2tetris.ast.AstParser;
 import edu.nadn2tetris.conf.Flag;
+import edu.nadn2tetris.table.SymbolTable;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.TokensCompiler;
 import edu.nadn2tetris.utils.FileUtils;
+import edu.nadn2tetris.writer.VMWriter;
 
 public final class JackCompiler {
 
@@ -78,12 +84,32 @@ public final class JackCompiler {
 
             if (flags.contains(Flag.XML_MODE)) {
                 compileXml(src, outFile);
-                return;
+                break;
             }
 
             if (flags.contains(Flag.TOKENS)) {
                 compileTokens(src, outFile);
-                return;
+                break;
+            }
+
+            if (flags.contains(Flag.GENERATE_CODE)) {
+                compileByteCode(src, outFile);
+            }
+        }
+    }
+
+    private static void compileByteCode(Path src, Path outFile) throws IOException {
+        try (
+                final AstParser engine = new AstParser(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                )
+        ) {
+            final AbstractSyntaxTree classTree = engine.compileClass();
+            try (final ByteCodeAstGenerator byteCodeGenerator = new ByteCodeAstGenerator(
+                    new SymbolTableAstGenerator().generate(classTree),
+                    new VMWriter(Files.newBufferedWriter(outFile))
+            )) {
+                byteCodeGenerator.generate(classTree);
             }
         }
     }

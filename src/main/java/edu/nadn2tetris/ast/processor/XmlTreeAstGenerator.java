@@ -136,7 +136,7 @@ public final class XmlTreeAstGenerator implements AstGenerator<String> {
         }
 
         write('=');
-        writeExpression(node.assigment);
+        writeExpression(node.expression);
         write(';');
         closeBlock("letStatement");
     }
@@ -348,7 +348,7 @@ public final class XmlTreeAstGenerator implements AstGenerator<String> {
 
     private void writeSubroutineCall(SubroutineCallTree node) {
         //see edu/nadn2tetris/ast/term/subroutine/SubroutineCallTree.java:10
-        final String[] identifiers = node.identifierTree.split("\\.");
+        final String[] identifiers = node.identifierName.split("\\.");
         write(identifiers[0]);
         if (identifiers.length == 2) {
             write('.');

@@ -24,12 +24,8 @@ public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTab
     private final SymbolTable classSymbolTable = new SymbolTable();
     private final Map<String, SymbolTable> subroutineSymbolTables = new HashMap<>();
 
-    private final String className;
+    private String className;
     private String currSubroutineName;
-
-    public SymbolTableAstGenerator(String className) {
-        this.className = className;
-    }
 
     @Override
     public FileSymbolTable generate(AbstractSyntaxTree root) {
@@ -41,6 +37,7 @@ public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTab
         switch (root.getNodeKind()) {
             case CLASS -> {
                 final ClassTree classTree = (ClassTree) root;
+                this.className = classTree.className;
                 final List<AbstractSyntaxTree> list = classTree.blocks.stream()
                         .filter(node -> DECLARATION_KINDS.contains(node.getNodeKind())).toList();
                 for (AbstractSyntaxTree block : list) {

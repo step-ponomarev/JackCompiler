@@ -293,7 +293,7 @@ public final class AstParser implements Closeable {
         }
 
         advance(); // skip =
-        letStatementTree.assigment = compileExpression();
+        letStatementTree.expression = compileExpression();
         advance(); // next
 
         return letStatementTree;
