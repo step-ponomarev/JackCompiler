@@ -11,6 +11,15 @@ public final class FileSymbolTable {
         this.subroutineSymbolTables = subroutineSymbolTables;
     }
 
+    public short getMethodVarCount(String methodName) {
+        final SymbolTable table = subroutineSymbolTables.get(methodName);
+        if (table == null) {
+            throw new IllegalStateException("Cannot find symbol table for " + methodName);
+        }
+
+        return table.size();
+    }
+
     public IdentifierInfo get(String methodName, String identifier) {
         final SymbolTable table = subroutineSymbolTables.get(methodName);
         if (table == null) {

@@ -76,7 +76,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
 
         final String methodName = subroutineDeclarationTree.name;
         final List<ParameterTree> params = subroutineDeclarationTree.parameterList;
-        vmWriter.writeFunction(methodName, params == null ? 0 : params.size());
+        vmWriter.writeFunction(methodName, symbolTable.getMethodVarCount(methodName) + (params == null ? 0 : params.size()));
 
         final SubroutineDeclarationTree.SubroutineType functionType = subroutineDeclarationTree.subroutineType;
         if (functionType == SubroutineDeclarationTree.SubroutineType.METHOD) {
@@ -124,7 +124,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         compileStatements(node.body, methodName);
         vmWriter.writeGoto(conditionCheck);
 
-        vmWriter.writeGoto(whileBodyEnd);
+        vmWriter.writeLabel(whileBodyEnd);
     }
 
     private void compileIfStatement(IfStatementTree node, String methodName) {
@@ -237,10 +237,10 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
 
     private void compileStringConstant(StringConstantTree termSyntaxTree) {
         vmWriter.writePush(Segment.CONSTANT, (short) termSyntaxTree.value.length());
-        vmWriter.writeCall("String.new", 2);
+        vmWriter.writeCall("String.new", 1);
         for (char ch : termSyntaxTree.value.toCharArray()) {
             vmWriter.writePush(Segment.CONSTANT, (short) ch);
-            vmWriter.writeCall("String.append", 2);
+            vmWriter.writeCall("String.appendChar", 2);
         }
     }
 
@@ -257,7 +257,8 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         final String[] split = termSyntaxTree.identifierName.split("\\.");
 
         final String identifierName;
-        if (split.length > 1) {
+        final boolean systemCall = split.length > 1;
+        if (systemCall) {
             final IdentifierInfo identifierInfo = symbolTable.get(methodName, split[0]);
             if (identifierInfo != null) { // method call
                 identifierName = split[1];
@@ -278,7 +279,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
             }
         }
 
-        vmWriter.writeCall(identifierName, paramN + 1);
+        vmWriter.writeCall(identifierName, systemCall ? paramN : paramN + 1);
     }
 
     private void compileKeyword(KeywordConstantTree termSyntaxTree) {

@@ -13,13 +13,11 @@ import java.util.List;
 import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.ast.processor.ByteCodeAstGenerator;
 import edu.nadn2tetris.ast.processor.SymbolTableAstGenerator;
 import edu.nadn2tetris.ast.processor.XmlTreeAstGenerator;
 import edu.nadn2tetris.ast.AstParser;
 import edu.nadn2tetris.conf.Flag;
-import edu.nadn2tetris.table.SymbolTable;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.TokensCompiler;
 import edu.nadn2tetris.utils.FileUtils;
@@ -78,7 +76,7 @@ public final class JackCompiler {
         }
 
         for (Path src : srcFiles) {
-            final Path outFile = outDir.resolve(src.getFileName().toString().replace(".jack", ".xml"));
+            final Path outFile = outDir.resolve(src.getFileName().toString().replace(".jack", flags.contains(Flag.GENERATE_CODE) ? ".vm" : ".xml"));
             Files.deleteIfExists(outFile);
             Files.createFile(outFile);
 

@@ -12,8 +12,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.JackCompiler;
-import edu.nadn2tetris.utils.FileUtils;
 import edu.nand2tetris.utils.TestUtils;
+import nand2tetris.test.lib.ASMTester;
+import nand2tetris.test.lib.ASMTranslationException;
 
 
 public final class JackCompilerTest {
@@ -69,19 +70,16 @@ public final class JackCompilerTest {
     }
 
     @Test
-    public void testGntSquare() throws IOException {
-        final Path srcFile = RES_DIR.resolve("src/Square");
-        final Path testFiles = RES_DIR.resolve("test/Square");
+    public void testAverageCodeGeneration() throws IOException, ASMTranslationException {
+        final Path srcFile = RES_DIR.resolve("src/compiler/Average");
+
 
         JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--code"});
 
-        final Map<String, Path> testFilesMap = Files.walk(testFiles).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
 
-        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".xml")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
-
+        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".vm")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
         for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
-            final Path testFile = testFilesMap.get(compileFileEntry.getKey());
-//            TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
+            ASMTester.executeTestScript(compileFileEntry.getValue());
         }
     }
 }

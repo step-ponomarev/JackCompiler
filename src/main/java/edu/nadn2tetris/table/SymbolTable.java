@@ -41,6 +41,10 @@ public final class SymbolTable {
         identifiers.put(name, infoBuilder.build());
     }
 
+    public short size() {
+        return (short) identifiers.size();
+    }
+
     public IdentifierInfo getIdentifierInfo(String name) {
         return identifiers.get(name);
     }
