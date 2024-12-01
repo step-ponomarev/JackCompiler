@@ -69,6 +69,7 @@ public final class JackCompilerTest {
         }
     }
 
+    //TODO: Допилить либу для тестирования
     @Test
     public void testAverageCodeGeneration() throws IOException, ASMTranslationException {
         final Path srcFile = RES_DIR.resolve("src/compiler/Average");

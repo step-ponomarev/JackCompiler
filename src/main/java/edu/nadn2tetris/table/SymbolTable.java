@@ -6,17 +6,8 @@ import java.util.Map;
 import edu.nadn2tetris.ast.Type;
 
 public final class SymbolTable {
-    private Map<String, IdentifierInfo> identifiers = new HashMap<>();
-    private Map<Kind, Short> kindIndex = new HashMap<>();
-
-    /**
-     * @param name имя идентефикатора
-     * @param type keyword or Class name
-     * @param kind kind
-     */
-    public void define(String name, Type type, Kind kind) {
-        define(name, type.getCodeValue(), kind);
-    }
+    private final Map<String, IdentifierInfo> identifiers = new HashMap<>();
+    private final Map<Kind, Short> kindIndex = new HashMap<>();
 
     public void define(String name, String type, Kind kind) {
         final short[] index = new short[1];
@@ -24,7 +15,6 @@ public final class SymbolTable {
             index[0] = (short) (prev == null ? 0 : prev + 1);
             return index[0];
         });
-
 
         final IdentifierInfo.Builder infoBuilder = IdentifierInfo.builder()
                 .setName(name)
