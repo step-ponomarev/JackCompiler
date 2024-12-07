@@ -17,6 +17,7 @@ public final class OperatorTree extends AbstractConstantTree<OperatorTree.Op> {
         LS,
         GT,
         EQ,
-        NOT
+        NOT,
+        NEG
     }
 }

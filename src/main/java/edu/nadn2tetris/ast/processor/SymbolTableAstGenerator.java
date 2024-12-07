@@ -53,7 +53,7 @@ public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTab
             }
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
-                this.currSubroutineName = subroutineDeclarationTree.name;
+                this.currSubroutineName = className + "." + subroutineDeclarationTree.name;
 
                 final SymbolTable createdSymbolTable = new SymbolTable();
                 if (subroutineDeclarationTree.subroutineType == SubroutineDeclarationTree.SubroutineType.METHOD) {

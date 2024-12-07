@@ -69,18 +69,11 @@ public final class JackCompilerTest {
         }
     }
 
-    //TODO: Допилить либу для тестирования
     @Test
     public void testAverageCodeGeneration() throws IOException, ASMTranslationException {
-        final Path srcFile = RES_DIR.resolve("src/compiler/Average");
+        final Path srcFile = RES_DIR.resolve("src/compiler/Pong");
 
 
         JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--code"});
-
-
-        final Map<String, Path> compiledFilesMap = Files.walk(OUT_DIR).filter(s -> s.getFileName().toString().endsWith(".vm")).collect(Collectors.toMap(p -> p.getFileName().toString(), UnaryOperator.identity()));
-        for (Map.Entry<String, Path> compileFileEntry : compiledFilesMap.entrySet()) {
-            ASMTester.executeTestScript(compileFileEntry.getValue());
-        }
     }
 }

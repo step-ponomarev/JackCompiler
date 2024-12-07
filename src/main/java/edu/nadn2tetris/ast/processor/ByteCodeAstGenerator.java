@@ -24,7 +24,6 @@ import edu.nadn2tetris.ast.term.IdentifierTree;
 import edu.nadn2tetris.ast.term.IntegerConstantTree;
 import edu.nadn2tetris.ast.term.KeywordConstantTree;
 import edu.nadn2tetris.ast.term.OperatorTree;
-import edu.nadn2tetris.ast.term.ParameterTree;
 import edu.nadn2tetris.ast.term.StringConstantTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineBodyTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineCallTree;
@@ -40,6 +39,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
     private final FileSymbolTable symbolTable;
     private final VMWriter vmWriter;
     private final Map<String, Short> labelIndex = new HashMap<>();
+    private String className;
 
     public ByteCodeAstGenerator(FileSymbolTable symbolTable, VMWriter vmWriter) {
         this.symbolTable = symbolTable;
@@ -66,6 +66,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
             return;
         }
 
+        this.className = classNode.className;
         classNode.blocks.stream()
                 .filter(n -> n.getNodeKind() == NodeKind.SUBROUTINE_DECLARATION)
                 .forEach(this::handleSyntaxTree);
@@ -74,9 +75,8 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
     private void compileSubroutineDeclaration(AbstractSyntaxTree node) {
         final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) node;
 
-        final String methodName = subroutineDeclarationTree.name;
-        final List<ParameterTree> params = subroutineDeclarationTree.parameterList;
-        vmWriter.writeFunction(methodName, symbolTable.getMethodVarCount(methodName) + (params == null ? 0 : params.size()));
+        final String methodName = className + "." + subroutineDeclarationTree.name;
+        vmWriter.writeFunction(methodName, symbolTable.getMethodVarCount(methodName));
 
         final SubroutineDeclarationTree.SubroutineType functionType = subroutineDeclarationTree.subroutineType;
         if (functionType == SubroutineDeclarationTree.SubroutineType.METHOD) {
@@ -114,7 +114,6 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         final String whileBodyEnd = labelPrefix + "_end_" + suffix;
         final String conditionCheck = labelPrefix + "_check_" + suffix;
 
-        // check conditional
         vmWriter.writeLabel(conditionCheck);
         compileExpression(node.condition, methodName);
         vmWriter.writeIf(whileBodyStart);
@@ -158,7 +157,10 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
     private void compileReturnStatement(ReturnStatementTree node, String methodName) {
         if (node.expression != null) {
             compileExpression(node.expression, methodName);
+        } else {
+            vmWriter.writePush(Segment.CONSTANT, (short) 0);
         }
+
         vmWriter.writeReturn();
     }
 
@@ -192,10 +194,10 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         final Stack<ATermSyntaxTree> terms = new Stack<>();
         terms.add(expression);
 
-        final Set<AbstractSyntaxTree> visited = new HashSet<>();
+        final Set<ATermSyntaxTree> visited = new HashSet<>();
         while (!terms.isEmpty()) {
             final ATermSyntaxTree currTerm = terms.pop();
-            boolean handleCurrent = (currTerm.left == null || visited.contains(currTerm.left)) && (currTerm.right == null || visited.contains(currTerm.right));
+            boolean handleCurrent = currTerm.expression || (currTerm.left == null || visited.contains(currTerm.left)) && (currTerm.right == null || visited.contains(currTerm.right));
             if (handleCurrent) {
                 compileTerm(currTerm, methodName);
                 visited.add(currTerm);
@@ -258,28 +260,32 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
 
         final String identifierName;
         final boolean systemCall = split.length > 1;
+
+        final boolean hasArgs = termSyntaxTree.argList != null && !termSyntaxTree.argList.isEmpty();
+        int paramN = hasArgs ? termSyntaxTree.argList.size() : 0;
+
         if (systemCall) {
             final IdentifierInfo identifierInfo = symbolTable.get(methodName, split[0]);
             if (identifierInfo != null) { // method call
-                identifierName = split[1];
+                paramN += 1;
+                identifierName = identifierInfo.classType + "." + split[1];
                 vmWriter.writePush(getSegment(identifierInfo.kind), identifierInfo.index);
             } else { //system.call
                 identifierName = termSyntaxTree.identifierName;
             }
         } else { // this method call
+            paramN += 1;
             vmWriter.writePush(Segment.POINTER, (short) 0); // set this on stack
-            identifierName = split[0];
+            identifierName = className + "." + split[0];
         }
 
-        final boolean hasArgs = termSyntaxTree.argList != null && !termSyntaxTree.argList.isEmpty();
-        final int paramN = hasArgs ? termSyntaxTree.argList.size() : 0;
         if (hasArgs) {
             for (ATermSyntaxTree param : termSyntaxTree.argList) {
                 compileExpression(param, methodName);
             }
         }
 
-        vmWriter.writeCall(identifierName, systemCall ? paramN : paramN + 1);
+        vmWriter.writeCall(identifierName, paramN);
     }
 
     private void compileKeyword(KeywordConstantTree termSyntaxTree) {
@@ -288,11 +294,11 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         }
 
         if (termSyntaxTree.value == KeywordConstantTree.Keyword.TRUE) {
-            vmWriter.writePush(Segment.CONSTANT, (short) 0);
+            vmWriter.writePush(Segment.CONSTANT, (short) 1);
         }
 
         if (termSyntaxTree.value == KeywordConstantTree.Keyword.FALSE) {
-            vmWriter.writePush(Segment.CONSTANT, (short) 1);
+            vmWriter.writePush(Segment.CONSTANT, (short) 0);
         }
 
         if (termSyntaxTree.value == KeywordConstantTree.Keyword.NULL) {
@@ -302,57 +308,16 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
 
     private void compileOperation(OperatorTree termSyntaxTree) {
         if (termSyntaxTree.value == OperatorTree.Op.MUL) {
-            compileMul();
+            vmWriter.writeCall("Math.multiply", (short) 2);
             return;
         }
 
         if (termSyntaxTree.value == OperatorTree.Op.DIV) {
-            compileDiv();
+            vmWriter.writeCall("Math.divide", (short) 2);
             return;
         }
 
         vmWriter.writeArithmetic(parse(termSyntaxTree.value));
-    }
-
-    private void compileDiv() {
-        final String methodName = "div";
-        final short index = getLabelIndex(methodName);
-
-        vmWriter.writePop(Segment.TEMP, (short) 0); // left operant value
-        vmWriter.writePop(Segment.TEMP, (short) 1); // right operant value
-
-        vmWriter.writePush(Segment.TEMP, (short) 0);
-        vmWriter.writePop(Segment.TEMP, (short) 2); // curr value
-
-        vmWriter.writePush(Segment.CONSTANT, (short) 0);
-        vmWriter.writePop(Segment.TEMP, (short) 3); // res
-
-        final String conditionLabel = methodName + "_con_" + index;
-        final String endLabel = methodName + "_end_" + index;
-        final String start = methodName + "_start_" + index;
-
-        vmWriter.writeLabel(conditionLabel);
-        vmWriter.writePush(Segment.TEMP, (short) 2);
-        vmWriter.writePush(Segment.CONSTANT, (short) 0);
-        vmWriter.writeArithmetic(Command.GT);
-        vmWriter.writeIf(start);
-        vmWriter.writeGoto(endLabel);
-
-        vmWriter.writeLabel(start);
-        vmWriter.writePush(Segment.TEMP, (short) 2);
-        vmWriter.writePush(Segment.TEMP, (short) 1);
-        vmWriter.writeArithmetic(Command.SUB);
-        vmWriter.writePop(Segment.TEMP, (short) 2);
-
-        vmWriter.writePush(Segment.TEMP, (short) 3);
-        vmWriter.writePush(Segment.CONSTANT, (short) 1);
-        vmWriter.writeArithmetic(Command.ADD);
-        vmWriter.writePop(Segment.TEMP, (short) 3);
-
-        vmWriter.writeGoto(conditionLabel);
-
-        vmWriter.writeLabel(endLabel);
-        vmWriter.writePush(Segment.TEMP, (short) 3); // result on stack
     }
 
     private short getLabelIndex(String labelPrefix) {
@@ -367,58 +332,11 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
         return labelIndex.get(labelPrefix);
     }
 
-    private void compileMul() {
-        final String methodName = "mul";
-        labelIndex.compute(methodName, (k, i) -> {
-            if (i == null) {
-                return (short) 0;
-            }
-
-            return (short) (i + 1);
-        });
-
-        final short suffix = labelIndex.get(methodName);
-        vmWriter.writePop(Segment.TEMP, (short) 0); // left operant value
-        vmWriter.writePop(Segment.TEMP, (short) 1); // right operant value
-
-        vmWriter.writePush(Segment.CONSTANT, (short) 0);
-        vmWriter.writePop(Segment.TEMP, (short) 2); // curr iteration
-
-        vmWriter.writePush(Segment.CONSTANT, (short) 0);
-        vmWriter.writePop(Segment.TEMP, (short) 3); // res
-
-        final String conditionLabel = methodName + "_con_" + suffix;
-        final String endLabel = methodName + "_end_" + suffix;
-        final String start = methodName + "_start_" + suffix;
-
-        vmWriter.writeLabel(conditionLabel);
-        vmWriter.writePush(Segment.TEMP, (short) 2);
-        vmWriter.writePush(Segment.TEMP, (short) 1);
-        vmWriter.writeArithmetic(Command.LT);
-        vmWriter.writeIf(start);
-        vmWriter.writeGoto(endLabel);
-
-        vmWriter.writeLabel(start);
-        vmWriter.writePush(Segment.TEMP, (short) 0);
-        vmWriter.writePush(Segment.TEMP, (short) 0);
-        vmWriter.writeArithmetic(Command.ADD);
-        vmWriter.writePop(Segment.TEMP, (short) 3);
-
-        vmWriter.writePush(Segment.CONSTANT, (short) 1);
-        vmWriter.writePush(Segment.TEMP, (short) 2);
-        vmWriter.writeArithmetic(Command.ADD);
-        vmWriter.writePop(Segment.TEMP, (short) 2);
-
-        vmWriter.writeGoto(conditionLabel);
-
-        vmWriter.writeLabel(endLabel);
-        vmWriter.writePush(Segment.TEMP, (short) 3); // result on stack
-    }
-
     public Command parse(OperatorTree.Op op) {
         return switch (op) {
             case ADD -> Command.ADD;
             case SUB -> Command.SUB;
+            case NEG -> Command.NEG;
             case NOT -> Command.NOT;
             case EQ -> Command.EQ;
             case GT -> Command.GT;
@@ -441,7 +359,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
 
     private Segment getSegment(Kind kind) {
         if (kind == Kind.FIELD) {
-            return Segment.POINTER;
+            return Segment.THIS;
         }
 
         if (kind == Kind.STATIC) {
@@ -460,11 +378,9 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
     }
 
     private void writeConstructorBody(SubroutineBodyTree bodyTree) {
-        final String methodName = "new";
+        final String methodName = className + ".new";
 
-        final List<StatementTree> statements = bodyTree.nodes.stream()
-                .filter(n -> n instanceof StatementTree)
-                .map(n -> (StatementTree) n).toList();
+        final List<StatementTree> statements = bodyTree.nodes.stream().filter(n -> n instanceof StatementTree).map(n -> (StatementTree) n).toList();
 
         compileStatements(statements, methodName);
 
@@ -473,9 +389,7 @@ public final class ByteCodeAstGenerator implements AstGenerator<Boolean>, Closea
     }
 
     private void compileFunctionBody(String methodName, SubroutineBodyTree bodyTree) {
-        final List<StatementTree> statements = bodyTree.nodes.stream()
-                .filter(n -> n instanceof StatementTree)
-                .map(n -> (StatementTree) n).toList();
+        final List<StatementTree> statements = bodyTree.nodes.stream().filter(n -> n instanceof StatementTree).map(n -> (StatementTree) n).toList();
 
         compileStatements(statements, methodName);
     }

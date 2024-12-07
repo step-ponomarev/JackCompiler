@@ -6,8 +6,8 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 final class RowFilterSpliterator extends Spliterators.AbstractSpliterator<String> {
-    private static final Pattern COMMENTS_LINE_PATTERN = Pattern.compile("^(//.*|/\\*.*\\*/)$");
-    private static final Pattern COMMENTS_START_BLOCK_PATTERN = Pattern.compile("^/\\*.*$");
+    private static final Pattern COMMENTS_LINE_PATTERN = Pattern.compile("^\\s*(//.*|/\\*.*\\*/)$");
+    private static final Pattern COMMENTS_START_BLOCK_PATTERN = Pattern.compile("^\\s*/\\*.*$");
     private static final Pattern COMMENTS_END_BLOCK_PATTERN = Pattern.compile("^.*\\*/$");
     private static final Pattern EMPTY_LINE_PATTERN = Pattern.compile("^\\s*$");
     private boolean commentBlockStarted;

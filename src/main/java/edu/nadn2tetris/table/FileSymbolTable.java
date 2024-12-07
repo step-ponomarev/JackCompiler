@@ -17,7 +17,7 @@ public final class FileSymbolTable {
             throw new IllegalStateException("Cannot find symbol table for " + methodName);
         }
 
-        return table.size();
+        return table.countOf(Kind.VAR);
     }
 
     public IdentifierInfo get(String methodName, String identifier) {

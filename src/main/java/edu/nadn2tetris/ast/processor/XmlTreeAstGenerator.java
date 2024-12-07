@@ -257,7 +257,7 @@ public final class XmlTreeAstGenerator implements AstGenerator<String> {
 
     private char parse(OperatorTree.Op op) {
         return switch (op) {
-            case SUB -> '-';
+            case SUB, NEG -> '-';
             case LS -> '<';
             case EQ -> '=';
             case GT -> '>';

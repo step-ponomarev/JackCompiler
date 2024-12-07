@@ -80,14 +80,15 @@ public final class JackCompiler {
             Files.deleteIfExists(outFile);
             Files.createFile(outFile);
 
+            //TODO: режимы взаимо исключающие
             if (flags.contains(Flag.XML_MODE)) {
                 compileXml(src, outFile);
-                break;
+                continue;
             }
 
             if (flags.contains(Flag.TOKENS)) {
                 compileTokens(src, outFile);
-                break;
+                continue;
             }
 
             if (flags.contains(Flag.GENERATE_CODE)) {

@@ -384,7 +384,13 @@ public final class AstParser implements Closeable {
 
         advance(); // to next term
         // unaryOp term
-        if (term instanceof OperatorTree && term.right == null) {
+        if (term instanceof OperatorTree unaryOp && term.right == null && term.left == null) {
+            if (unaryOp.value == OperatorTree.Op.SUB) {
+                OperatorTree operatorTree = new OperatorTree(OperatorTree.Op.NEG);
+                operatorTree.left = compileTerm();
+                return operatorTree;
+            }
+
             term.left = compileTerm();
             return term;
         }
