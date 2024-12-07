@@ -12,9 +12,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import edu.nadn2tetris.JackCompiler;
+import edu.nadn2tetris.utils.FileUtils;
 import edu.nand2tetris.utils.TestUtils;
-import nand2tetris.test.lib.ASMTester;
-import nand2tetris.test.lib.ASMTranslationException;
 
 
 public final class JackCompilerTest {
@@ -23,7 +22,7 @@ public final class JackCompilerTest {
 
     @AfterEach
     public void cleanUp() throws IOException {
-//        FileUtils.removeDir(OUT_DIR);
+        FileUtils.removeDir(OUT_DIR);
     }
 
     @Test
@@ -67,13 +66,5 @@ public final class JackCompilerTest {
             final Path testFile = testFilesMap.get(compileFileEntry.getKey());
             TestUtils.compareFiles(testFile.toFile(), compileFileEntry.getValue().toFile());
         }
-    }
-
-    @Test
-    public void testAverageCodeGeneration() throws IOException, ASMTranslationException {
-        final Path srcFile = RES_DIR.resolve("src/compiler/Pong");
-
-
-        JackCompiler.main(new String[]{srcFile.toString(), OUT_DIR.toString(), "--code"});
     }
 }
