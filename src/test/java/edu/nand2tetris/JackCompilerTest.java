@@ -15,7 +15,6 @@ import edu.nadn2tetris.JackCompiler;
 import edu.nadn2tetris.utils.FileUtils;
 import edu.nand2tetris.utils.TestUtils;
 
-
 public final class JackCompilerTest {
     private static final Path RES_DIR = Paths.get("src", "test", "resources");
     private final static Path OUT_DIR = RES_DIR.resolve("out");

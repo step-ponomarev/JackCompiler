@@ -1,4 +1,4 @@
-package edu.nadn2tetris.compiler;
+package edu.nadn2tetris.ast;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.ClassTree;
 import edu.nadn2tetris.ast.term.ATermSyntaxTree;
 import edu.nadn2tetris.ast.declaration.ClassVarDeclarationTree;
 import edu.nadn2tetris.ast.declaration.VarDeclarationTree;
@@ -19,7 +17,6 @@ import edu.nadn2tetris.ast.statement.StatementTree;
 import edu.nadn2tetris.ast.statement.WhileStatementTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineBodyTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineDeclarationTree;
-import edu.nadn2tetris.ast.Type;
 import edu.nadn2tetris.ast.term.ArraySyntaxTree;
 import edu.nadn2tetris.ast.term.OperatorTree;
 import edu.nadn2tetris.ast.term.IdentifierTree;
@@ -35,11 +32,11 @@ import edu.nadn2tetris.tokenizer.JackTokenizer;
 /**
  * Creates AST tree
  */
-public final class CompilationEngine implements Closeable {
+public final class AstParser implements Closeable {
     private final JackTokenizer tokenizer;
     private boolean hasBufferedToken;
 
-    public CompilationEngine(JackTokenizer tokenizer) {
+    public AstParser(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
     }
 
@@ -296,7 +293,7 @@ public final class CompilationEngine implements Closeable {
         }
 
         advance(); // skip =
-        letStatementTree.assigment = compileExpression();
+        letStatementTree.expression = compileExpression();
         advance(); // next
 
         return letStatementTree;
@@ -387,7 +384,13 @@ public final class CompilationEngine implements Closeable {
 
         advance(); // to next term
         // unaryOp term
-        if (term instanceof OperatorTree && term.right == null) {
+        if (term instanceof OperatorTree unaryOp && term.right == null && term.left == null) {
+            if (unaryOp.value == OperatorTree.Op.SUB) {
+                OperatorTree operatorTree = new OperatorTree(OperatorTree.Op.NEG);
+                operatorTree.left = compileTerm();
+                return operatorTree;
+            }
+
             term.left = compileTerm();
             return term;
         }

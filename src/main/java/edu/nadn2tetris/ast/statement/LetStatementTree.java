@@ -6,8 +6,8 @@ import edu.nadn2tetris.ast.term.ArraySyntaxTree;
 
 public final class LetStatementTree extends StatementTree {
     public String identifierName;
-    public ArraySyntaxTree arraySyntaxTree;
-    public ATermSyntaxTree assigment;
+    public ArraySyntaxTree arraySyntaxTree; // if var is array
+    public ATermSyntaxTree expression;
 
     public LetStatementTree() {
         super(NodeKind.LET_STATEMENT);

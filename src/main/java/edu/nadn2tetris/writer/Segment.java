@@ -5,8 +5,8 @@ public enum Segment {
     ARGUMENT,
     LOCAL,
     STATIC,
-    THIS,
-    THAT,
-    POINTER,
+    THIS, // this data
+    THAT, // that data
+    POINTER, // addr segment 0 - this, 1 - that
     TEMP
 }

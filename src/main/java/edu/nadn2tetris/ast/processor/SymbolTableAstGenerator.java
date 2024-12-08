@@ -18,15 +18,17 @@ import edu.nadn2tetris.table.FileSymbolTable;
 import edu.nadn2tetris.table.Kind;
 import edu.nadn2tetris.table.SymbolTable;
 
-public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTable> {
+public final class SymbolTableAstGenerator implements AstGenerator<FileSymbolTable> {
     private static final Set<NodeKind> DECLARATION_KINDS = Set.of(NodeKind.CLASS_VAR_DECLARATION, NodeKind.SUBROUTINE_DECLARATION);
 
     private final SymbolTable classSymbolTable = new SymbolTable();
     private final Map<String, SymbolTable> subroutineSymbolTables = new HashMap<>();
+
+    private String className;
     private String currSubroutineName;
 
     @Override
-    public FileSymbolTable process(AbstractSyntaxTree root) {
+    public FileSymbolTable generate(AbstractSyntaxTree root) {
         fillSymbolTree(root);
         return new FileSymbolTable(classSymbolTable, subroutineSymbolTables);
     }
@@ -35,6 +37,7 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
         switch (root.getNodeKind()) {
             case CLASS -> {
                 final ClassTree classTree = (ClassTree) root;
+                this.className = classTree.className;
                 final List<AbstractSyntaxTree> list = classTree.blocks.stream()
                         .filter(node -> DECLARATION_KINDS.contains(node.getNodeKind())).toList();
                 for (AbstractSyntaxTree block : list) {
@@ -50,8 +53,13 @@ public final class SymbolTableAstProcessor implements AstProcessor<FileSymbolTab
             }
             case SUBROUTINE_DECLARATION -> {
                 final SubroutineDeclarationTree subroutineDeclarationTree = (SubroutineDeclarationTree) root;
-                this.currSubroutineName = subroutineDeclarationTree.name;
+                this.currSubroutineName = className + "." + subroutineDeclarationTree.name;
+
                 final SymbolTable createdSymbolTable = new SymbolTable();
+                if (subroutineDeclarationTree.subroutineType == SubroutineDeclarationTree.SubroutineType.METHOD) {
+                    createdSymbolTable.define("this", className, Kind.ARG);
+                }
+
                 if (subroutineDeclarationTree.parameterList != null && !subroutineDeclarationTree.parameterList.isEmpty()) {
                     for (ParameterTree parameter : subroutineDeclarationTree.parameterList) {
                         createdSymbolTable.define(parameter.name, parameter.getType(), Kind.ARG);

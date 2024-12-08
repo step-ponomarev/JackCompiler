@@ -28,14 +28,14 @@ import edu.nadn2tetris.ast.term.subroutine.SubroutineCallTree;
 import edu.nadn2tetris.ast.term.subroutine.SubroutineDeclarationTree;
 import edu.nadn2tetris.common.Keyword;
 
-public final class XmlTreeAstProcessor implements AstProcessor<String> {
+public final class XmlTreeAstGenerator implements AstGenerator<String> {
     private final String TAB_SYMBOL = "\s\s";
 
     private final StringBuilder xml = new StringBuilder();
     private int nestingLevel = 0;
 
     @Override
-    public String process(AbstractSyntaxTree root) {
+    public String generate(AbstractSyntaxTree root) {
         handleSyntaxTree(root);
         return xml.toString();
     }
@@ -136,7 +136,7 @@ public final class XmlTreeAstProcessor implements AstProcessor<String> {
         }
 
         write('=');
-        writeExpression(node.assigment);
+        writeExpression(node.expression);
         write(';');
         closeBlock("letStatement");
     }
@@ -257,7 +257,7 @@ public final class XmlTreeAstProcessor implements AstProcessor<String> {
 
     private char parse(OperatorTree.Op op) {
         return switch (op) {
-            case SUB -> '-';
+            case SUB, NEG -> '-';
             case LS -> '<';
             case EQ -> '=';
             case GT -> '>';
@@ -348,7 +348,7 @@ public final class XmlTreeAstProcessor implements AstProcessor<String> {
 
     private void writeSubroutineCall(SubroutineCallTree node) {
         //see edu/nadn2tetris/ast/term/subroutine/SubroutineCallTree.java:10
-        final String[] identifiers = node.identifierTree.split("\\.");
+        final String[] identifiers = node.identifierName.split("\\.");
         write(identifiers[0]);
         if (identifiers.length == 2) {
             write('.');

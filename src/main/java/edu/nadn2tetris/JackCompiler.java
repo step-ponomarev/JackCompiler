@@ -2,6 +2,7 @@ package edu.nadn2tetris;
 
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,12 +13,15 @@ import java.util.List;
 import java.util.Set;
 
 import edu.nadn2tetris.ast.AbstractSyntaxTree;
-import edu.nadn2tetris.ast.processor.XmlTreeAstProcessor;
-import edu.nadn2tetris.compiler.CompilationEngine;
+import edu.nadn2tetris.ast.processor.ByteCodeAstGenerator;
+import edu.nadn2tetris.ast.processor.SymbolTableAstGenerator;
+import edu.nadn2tetris.ast.processor.XmlTreeAstGenerator;
+import edu.nadn2tetris.ast.AstParser;
 import edu.nadn2tetris.conf.Flag;
 import edu.nadn2tetris.tokenizer.JackTokenizer;
 import edu.nadn2tetris.tokenizer.TokensCompiler;
 import edu.nadn2tetris.utils.FileUtils;
+import edu.nadn2tetris.writer.VMWriter;
 
 public final class JackCompiler {
 
@@ -72,31 +76,52 @@ public final class JackCompiler {
         }
 
         for (Path src : srcFiles) {
-            final Path outFile = outDir.resolve(src.getFileName().toString().replace(".jack", ".xml"));
+            final Path outFile = outDir.resolve(src.getFileName().toString().replace(".jack", flags.contains(Flag.GENERATE_CODE) ? ".vm" : ".xml"));
             Files.deleteIfExists(outFile);
             Files.createFile(outFile);
 
+            //TODO: режимы взаимо исключающие
             if (flags.contains(Flag.XML_MODE)) {
                 compileXml(src, outFile);
-                return;
+                continue;
             }
 
             if (flags.contains(Flag.TOKENS)) {
                 compileTokens(src, outFile);
-                return;
+                continue;
+            }
+
+            if (flags.contains(Flag.GENERATE_CODE)) {
+                compileByteCode(src, outFile);
+            }
+        }
+    }
+
+    private static void compileByteCode(Path src, Path outFile) throws IOException {
+        try (
+                final AstParser engine = new AstParser(
+                        new JackTokenizer(new FileInputStream(src.toFile()))
+                )
+        ) {
+            final AbstractSyntaxTree classTree = engine.compileClass();
+            try (final ByteCodeAstGenerator byteCodeGenerator = new ByteCodeAstGenerator(
+                    new SymbolTableAstGenerator().generate(classTree),
+                    new VMWriter(Files.newBufferedWriter(outFile))
+            )) {
+                byteCodeGenerator.generate(classTree);
             }
         }
     }
 
     private static void compileXml(Path src, Path outDir) throws IOException {
         try (
-                final CompilationEngine engine = new CompilationEngine(
+                final AstParser engine = new AstParser(
                         new JackTokenizer(new FileInputStream(src.toFile()))
                 );
                 final BufferedWriter writer = Files.newBufferedWriter(outDir);
         ) {
             final AbstractSyntaxTree abstractSyntaxTree = engine.compileClass();
-            writer.write(new XmlTreeAstProcessor().process(abstractSyntaxTree));
+            writer.write(new XmlTreeAstGenerator().generate(abstractSyntaxTree));
         }
     }
 
